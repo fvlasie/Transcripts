@@ -1,12 +1,16 @@
 <?php
-use Gibbon\Module\Transcripts\Services\RegistrarQueryService;
-use Gibbon\Module\Transcripts\Gateway\RegistrarQueryGateway;
+
+use Gibbon\Forms\Form;
+use Gibbon\Tables\DataTable;
+use Gibbon\Services\Format;
+use Gibbon\Module\Transcripts\Domain\RegistrarQueryGateway;
+
+require_once __DIR__.'/moduleFunctions.php';
+checkAndMigrateTranscriptsSchema($pdo);
 
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.php') == false) {
-    echo "<div class='error'>" . __('You do not have access to this action.') . "</div>";
+    $page->addError(__('You do not have access to this action.'));
 } else {
-    echo "<h2>" . __('Advanced Registrar Query Engine') . "</h2>";
-
     $page->breadcrumbs->add(__('Registrar Reports'));
 
     $filters = [
@@ -17,93 +21,83 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
         'gender' => $_GET['gender'] ?? '',
     ];
 
-    echo "<form method='GET' action='index.php' class='p-4 bg-gray-50 border rounded mb-4 grid grid-cols-3 gap-4'>";
-    echo "<input type='hidden' name='q' value='/modules/Transcripts/query_engine.php'>";
+    echo '<h2>';
+    echo __('Filter');
+    echo '</h2>';
 
-    // Program Filter
-    echo "<div><label class='block text-sm font-medium'>" . __('Program Type') . "</label>";
-    echo "<select name='programType' class='w-full border p-1 rounded'>";
-    echo "<option value=''>" . __('All Programs') . "</option>";
-    foreach (['MTS', 'BTh', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree'] as $p) {
-        $sel = ($filters['programType'] === $p) ? 'selected' : '';
-        echo "<option value='{$p}' {$sel}>{$p}</option>";
+    $form = Form::create('registrarFilter', $session->get('absoluteURL').'/index.php', 'get');
+    $form->setClass('noIntBorder w-full');
+    $form->addHiddenValue('q', '/modules/'.$session->get('module').'/query_engine.php');
+
+    $row = $form->addRow();
+        $row->addLabel('programType', __('Program Type'));
+        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->placeholder()->selected($filters['programType']);
+
+    $row = $form->addRow();
+        $row->addLabel('concentration', __('Concentration'));
+        $row->addSelect('concentration')->fromArray(getTranscriptsConcentrations())->placeholder()->selected($filters['concentration']);
+
+    $row = $form->addRow();
+        $row->addLabel('studentLevel', __('Student Level'));
+        $row->addSelect('studentLevel')->fromArray(getTranscriptsStudentLevels())->placeholder()->selected($filters['studentLevel']);
+
+    $row = $form->addRow();
+        $row->addLabel('modeOfInstruction', __('Mode of Instruction'));
+        $row->addSelect('modeOfInstruction')->fromArray(getTranscriptsInstructionModes())->placeholder()->selected($filters['modeOfInstruction']);
+
+    $row = $form->addRow();
+        $row->addLabel('gender', __('Sex / Gender'));
+        $row->addSelect('gender')->fromArray(['M' => __('Male'), 'F' => __('Female')])->placeholder()->selected($filters['gender']);
+
+    $row = $form->addRow();
+        $row->addSearchSubmit($session, __('Clear Filters'));
+
+    echo $form->getOutput();
+
+    $queryGateway = $container->get(RegistrarQueryGateway::class);
+
+    $criteria = $queryGateway->newQueryCriteria(true)
+        ->sortBy(['surname', 'preferredName'])
+        ->fromPOST();
+
+    foreach (array_filter($filters) as $name => $value) {
+        $criteria->filterBy($name, $value);
     }
-    echo "</select></div>";
 
-    // Concentration Filter
-    echo "<div><label class='block text-sm font-medium'>" . __('Concentration') . "</label>";
-    echo "<select name='concentration' class='w-full border p-1 rounded'>";
-    echo "<option value=''>" . __('All Concentrations') . "</option>";
-    foreach (['Biblical', 'Professional', 'General', 'Certificate', 'Masters'] as $c) {
-        $sel = ($filters['concentration'] === $c) ? 'selected' : '';
-        echo "<option value='{$c}' {$sel}>{$c}</option>";
-    }
-    echo "</select></div>";
+    echo '<h2>';
+    echo __('View');
+    echo '</h2>';
 
-    // Student Level Filter
-    echo "<div><label class='block text-sm font-medium'>" . __('Student Level') . "</label>";
-    echo "<select name='studentLevel' class='w-full border p-1 rounded'>";
-    echo "<option value=''>" . __('All Levels') . "</option>";
-    foreach (['Freshman', 'Sophomore', 'Junior', 'Senior', 'M1', 'M2', 'M3'] as $l) {
-        $sel = ($filters['studentLevel'] === $l) ? 'selected' : '';
-        echo "<option value='{$l}' {$sel}>{$l}</option>";
-    }
-    echo "</select></div>";
+    $results = $queryGateway->queryStudentRecords($criteria);
+    $totalStudents = $queryGateway->countDistinctStudents($criteria);
 
-    // Mode Filter
-    echo "<div><label class='block text-sm font-medium'>" . __('Mode of Instruction') . "</label>";
-    echo "<select name='modeOfInstruction' class='w-full border p-1 rounded'>";
-    echo "<option value=''>" . __('All Modes') . "</option>";
-    foreach (['In-person', 'Remote'] as $m) {
-        $sel = ($filters['modeOfInstruction'] === $m) ? 'selected' : '';
-        echo "<option value='{$m}' {$sel}>{$m}</option>";
-    }
-    echo "</select></div>";
+    $page->addMessage(__('Showing {totalResults} total course entries across {totalStudents} students.', [
+        'totalResults' => $results->getResultCount(),
+        'totalStudents' => $totalStudents,
+    ]));
 
-    // Gender Filter
-    echo "<div><label class='block text-sm font-medium'>" . __('Sex / Gender') . "</label>";
-    echo "<select name='gender' class='w-full border p-1 rounded'>";
-    echo "<option value=''>" . __('All') . "</option>";
-    foreach (['M' => 'Male', 'F' => 'Female'] as $k => $g) {
-        $sel = ($filters['gender'] === $k) ? 'selected' : '';
-        echo "<option value='{$k}' {$sel}>{$g}</option>";
-    }
-    echo "</select></div>";
+    $table = DataTable::createPaginated('registrarQuery', $criteria);
+    $table->setTitle(__('Results'));
 
-    echo "<div class='flex items-end'><button type='submit' class='btn btn-primary w-full'>" . __('Filter Records') . "</button></div>";
-    echo "</form>";
+    $table->addColumn('student', __('Student'))
+        ->sortable(['surname', 'preferredName'])
+        ->format(Format::using('name', ['', 'preferredName', 'surname', 'Student', true]));
 
-    // Execute query
-    $queryGateway = new RegistrarQueryGateway($pdo);
-    $queryService = new RegistrarQueryService($queryGateway);
-    $activeFilters = array_filter($filters);
-    $report = $queryService->queryRecords($activeFilters);
+    $table->addColumn('programType', __('Program'));
+    $table->addColumn('concentration', __('Concentration'));
+    $table->addColumn('studentLevel', __('Level'));
+    $table->addColumn('course', __('Course'))
+        ->format(function ($row) {
+            $code = $row['courseCode'] ?? '';
+            $name = $row['courseName'] ?? '';
 
-    echo "<div class='mb-2 text-sm text-gray-600'>" . sprintf(__('Showing %d total course entries across %d students.'), $report['summary']['totalResults'], $report['summary']['totalStudents']) . "</div>";
+            if ($code && $name) {
+                return $code.' - '.$name;
+            }
 
-    echo "<table class='w-full border-collapse border border-gray-300'>";
-    echo "<thead><tr class='bg-gray-200'>";
-    echo "<th class='p-2 border'>" . __('Student Name') . "</th>";
-    echo "<th class='p-2 border'>" . __('Program') . "</th>";
-    echo "<th class='p-2 border'>" . __('Concentration') . "</th>";
-    echo "<th class='p-2 border'>" . __('Level') . "</th>";
-    echo "<th class='p-2 border'>" . __('Course') . "</th>";
-    echo "<th class='p-2 border'>" . __('Mode') . "</th>";
-    echo "</tr></thead><tbody>";
+            return $code ?: ($name ?: '-');
+        });
+    $table->addColumn('modeOfInstruction', __('Mode'));
 
-    if (empty($report['data'])) {
-        echo "<tr><td colspan='6' class='p-4 text-center'>" . __('No records match the selected criteria.') . "</td></tr>";
-    } else {
-        foreach ($report['data'] as $row) {
-            echo "<tr>";
-            echo "<td class='p-2 border'>{$row['surname']}, {$row['firstName']}</td>";
-            echo "<td class='p-2 border'>{$row['programType']}</td>";
-            echo "<td class='p-2 border'>{$row['concentration']}</td>";
-            echo "<td class='p-2 border'>{$row['studentLevel']}</td>";
-            echo "<td class='p-2 border'>{$row['courseCode']} - {$row['courseName']}</td>";
-            echo "<td class='p-2 border'>{$row['modeOfInstruction']}</td>";
-            echo "</tr>";
-        }
-    }
-    echo "</tbody></table>";
+    echo $table->render($results);
 }

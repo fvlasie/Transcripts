@@ -1,0 +1,175 @@
+@page :first {
+    margin-top: 70mm;
+    margin-bottom: 22mm;
+    margin-left: 18mm;
+    margin-right: 24mm;
+    margin-footer: 12mm;
+    footer: html_transcriptFooter;
+    background: none;
+}
+
+@page {
+    margin-top: 20mm;
+    margin-bottom: 22mm;
+    margin-left: 18mm;
+    margin-right: 24mm;
+    margin-footer: 12mm;
+    footer: html_transcriptFooter;
+    background: none;
+}
+
+body {
+    font-family: alegreya, dejavusans, serif;
+    font-size: 10pt;
+    line-height: 1.25;
+    color: #111111;
+    background: transparent;
+}
+
+.transcript-content {
+    background: transparent;
+}
+
+.cumulative-gpa {
+    font-size: 9.5pt;
+    margin-bottom: 5mm;
+}
+
+.student-information {
+    margin-bottom: 6mm;
+}
+
+.student-information h2 {
+    font-size: 9.5pt;
+    margin: 0 0 2mm 0;
+    font-weight: bold;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.info-table td {
+    vertical-align: top;
+    padding: 0.4mm 0;
+    font-size: 8.5pt;
+}
+
+.info-table .label {
+    width: 52mm;
+    font-weight: bold;
+}
+
+.term-block {
+    margin-bottom: 5mm;
+    page-break-inside: avoid;
+}
+
+.term-heading {
+    margin-bottom: 1.5mm;
+    font-weight: bold;
+    font-size: 9pt;
+}
+
+.term-year {
+    margin-right: 4mm;
+}
+
+.course-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.course-table th,
+.course-table td {
+    padding: 0.6mm 0.8mm;
+    vertical-align: top;
+    text-align: left;
+    font-size: 8.5pt;
+}
+
+.course-table thead th {
+    font-weight: bold;
+    border-bottom: 0.1mm solid #222222;
+    text-align: left;
+    font-size: 8pt;
+}
+
+.col-course { width: 33%; }
+
+.course-hang {
+    padding-left: 4mm;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+.col-grade { width: 7%; text-align: center; }
+.col-points { width: 9%; text-align: center; }
+.col-biblical { width: 19%; text-align: center; }
+.col-general { width: 16%; text-align: center; }
+.col-professional { width: 16%; text-align: center; }
+
+.col-concentration-label {
+    text-align: left;
+    font-size: 8pt;
+    font-style: italic;
+}
+
+.course-table .term-summary-row td {
+    border: none;
+}
+
+.course-table .term-summary-start td {
+    padding-top: 3mm;
+}
+
+.course-table .summary-value {
+    font-weight: bold;
+}
+
+.transcript-closing {
+    margin-top: 6mm;
+    page-break-inside: avoid;
+}
+
+.registrar-block {
+    margin-left: 12mm;
+    font-size: 8.5pt;
+}
+
+.unofficial-banner {
+    margin-bottom: 5mm;
+    text-align: center;
+    font-weight: bold;
+    font-size: 12pt;
+    width: 100%;
+}
+
+.unofficial-notice {
+    font-size: 12pt;
+    font-weight: bold;
+    text-align: center;
+    width: 100%;
+}
+
+.registrar-signature {
+    height: 16mm;
+    margin-left: 24mm;
+    width: auto;
+    margin-top: .5mm;
+}
+
+.graduation-banner {
+    margin-top: 5mm;
+    text-align: center;
+    font-weight: bold;
+    font-size: 10pt;
+    width: 100%;
+}
+
+.page-number {
+    text-align: center;
+    font-size: 8pt;
+    color: #111111;
+}

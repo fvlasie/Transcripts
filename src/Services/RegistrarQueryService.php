@@ -2,11 +2,9 @@
 
 namespace Gibbon\Module\Transcripts\Services;
 
-use Gibbon\Module\Transcripts\Gateway\RegistrarQueryGateway;
+use Gibbon\Domain\QueryCriteria;
+use Gibbon\Module\Transcripts\Domain\RegistrarQueryGateway;
 
-/**
- * Service to execute dynamic filtering, sorting, and cross-sectional analytics across student cohorts.
- */
 class RegistrarQueryService
 {
     private RegistrarQueryGateway $queryGateway;
@@ -16,20 +14,17 @@ class RegistrarQueryService
         $this->queryGateway = $queryGateway;
     }
 
-    public function queryRecords(array $filters = [], array $sorting = []): array
+    public function queryRecords(QueryCriteria $criteria): array
     {
-        $results = $this->queryGateway->queryStudentRecords($filters, $sorting);
+        $results = $this->queryGateway->queryStudentRecords($criteria);
 
-        // Calculate analytical summary metadata
-        $totalStudents = count(array_unique(array_column($results, 'gibbonPersonID')));
-        
         return [
             'summary' => [
-                'totalResults' => count($results),
-                'totalStudents' => $totalStudents,
-                'appliedFilters' => $filters,
+                'totalResults' => $results->getResultCount(),
+                'totalStudents' => $this->queryGateway->countDistinctStudents($criteria),
+                'appliedFilters' => $criteria->getFilterBy(),
             ],
-            'data' => $results
+            'data' => $results,
         ];
     }
 }
