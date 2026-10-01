@@ -1,3 +1,3 @@
 <?php
 // Module version file for Transcripts module
-$moduleVersion = '1.0.3';
+$moduleVersion = '1.0.4';
