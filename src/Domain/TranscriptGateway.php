@@ -77,7 +77,7 @@ class TranscriptGateway extends QueryableGateway
                 gibbonCourse.name AS courseName,
                 gibbonCourse.nameShort AS courseCode,
                 gibbonCoursesAndClasses.externalCourseCode,
-                COALESCE(gibbonCoursesAndClasses.credits, gibbonCourse.credits, 0) AS credits,
+                COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits,
                 gibbonCourse.courseLevel,
                 gibbonCourse.modeOfInstruction,
                 COALESCE(NULLIF(TRIM(gibbonScaleGrade.value), ''), NULLIF(TRIM(gibbonScaleGrade.descriptor), ''), gibbonReportingValue.value) AS letterGrade
