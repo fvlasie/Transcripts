@@ -12,56 +12,50 @@ class TranscriptGateway extends QueryableGateway
     private static $tableName = 'gibbonTermAlias';
     private static $primaryKey = 'gibbonTermAliasID';
 
-    public function getStudentTranscriptRecords(int $gibbonPersonID): array
+    /**
+     * Every Grade Scale value ever entered for the student, regardless of enrolment or status.
+     * Rows are ordered so that, for a given class and term, the latest cycle (by Reports sequence) comes last.
+     */
+    public function getStudentGradeRecords(int $gibbonPersonID): array
     {
-        $sql = $this->getTranscriptRecordSql().'
-            WHERE gibbonCourseClassPerson.gibbonPersonID = :gibbonPersonID
-            AND gibbonCourseClassPerson.role = :role
+        $sql = $this->getGradeRecordSql().'
+            WHERE gibbonReportingValue.gibbonPersonIDStudent = :gibbonPersonID
+            AND (gibbonReportingValue.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(gibbonReportingValue.value, \'\')) <> \'\')
             ORDER BY gibbonSchoolYear.sequenceNumber ASC,
-                     gibbonSchoolYearTerm.sequenceNumber ASC,
-                     gibbonCourse.nameShort ASC';
+                     COALESCE(gibbonSchoolYearTerm.sequenceNumber, gibbonReportingCycle.sequenceNumber) ASC,
+                     gibbonCourse.nameShort ASC,
+                     gibbonReportingCycle.sequenceNumber ASC,
+                     gibbonReportingCycle.dateEnd ASC,
+                     gibbonReportingCriteria.sequenceNumber DESC';
 
-        return $this->db()->select($sql, [
-            'gibbonPersonID' => $gibbonPersonID,
-            'role' => 'Student',
-        ])->fetchAll() ?: [];
+        return $this->db()->select($sql, ['gibbonPersonID' => $gibbonPersonID])->fetchAll() ?: [];
     }
 
-    public function getStudentTranscriptRecord(int $gibbonPersonID, int $gibbonCourseClassID, int $gibbonSchoolYearTermID = 0, int $gibbonReportingValueID = 0): ?array
+    public function getStudentGradeRecordByKey(int $gibbonPersonID, int $gibbonReportingCriteriaID, int $gibbonCourseClassID): ?array
     {
-        $sql = $this->getTranscriptRecordSql().'
-            WHERE gibbonCourseClassPerson.gibbonPersonID = :gibbonPersonID
-            AND gibbonCourseClassPerson.role = :role
-            AND gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID';
+        $sql = $this->getGradeRecordSql().'
+            WHERE gibbonReportingValue.gibbonPersonIDStudent = :gibbonPersonID
+            AND gibbonReportingValue.gibbonReportingCriteriaID = :gibbonReportingCriteriaID
+            AND gibbonReportingValue.gibbonCourseClassID = :gibbonCourseClassID
+            LIMIT 1';
 
-        $params = [
+        $row = $this->db()->select($sql, [
             'gibbonPersonID' => $gibbonPersonID,
-            'role' => 'Student',
+            'gibbonReportingCriteriaID' => $gibbonReportingCriteriaID,
             'gibbonCourseClassID' => $gibbonCourseClassID,
-        ];
-
-        if ($gibbonSchoolYearTermID > 0) {
-            $sql .= ' AND gibbonSchoolYearTerm.gibbonSchoolYearTermID = :gibbonSchoolYearTermID';
-            $params['gibbonSchoolYearTermID'] = $gibbonSchoolYearTermID;
-        } elseif ($gibbonReportingValueID > 0) {
-            $sql .= ' AND gibbonReportingValue.gibbonReportingValueID = :gibbonReportingValueID';
-            $params['gibbonReportingValueID'] = $gibbonReportingValueID;
-        }
-
-        $sql .= ' LIMIT 1';
-
-        $row = $this->db()->select($sql, $params)->fetch();
+        ])->fetch();
 
         return !empty($row) ? $row : null;
     }
 
-    private function getTranscriptRecordSql(): string
+    private function getGradeRecordSql(): string
     {
-        $cycleMatch = $this->getReportingCycleMatchSubquery();
+        $termMatch = $this->getTermMatchSubquery('gibbonReportingCycle');
 
         return "SELECT
-                gibbonCourseClassPerson.gibbonPersonID,
+                gibbonReportingValue.gibbonPersonIDStudent AS gibbonPersonID,
                 gibbonCourseClass.gibbonCourseClassID,
+                gibbonCourseClass.nameShort AS className,
                 gibbonCourse.gibbonCourseID,
                 gibbonCourse.gibbonSchoolYearID,
                 gibbonReportingValue.gibbonReportingValueID,
@@ -70,6 +64,12 @@ class TranscriptGateway extends QueryableGateway
                 gibbonReportingValue.gibbonScaleGradeID,
                 gibbonReportingValue.value AS reportingValue,
                 gibbonReportingValue.value AS numericGrade,
+                gibbonReportingValue.timestampModified,
+                gibbonReportingValue.gibbonPersonIDModified,
+                modifier.title AS modifiedTitle,
+                modifier.preferredName AS modifiedPreferredName,
+                modifier.surname AS modifiedSurname,
+                gibbonReportingCycle.name AS cycleName,
                 gibbonSchoolYear.name AS schoolYearName,
                 gibbonSchoolYearTerm.gibbonSchoolYearTermID,
                 COALESCE(gibbonSchoolYearTerm.name, gibbonReportingCycle.name) AS termName,
@@ -80,37 +80,178 @@ class TranscriptGateway extends QueryableGateway
                 COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits,
                 gibbonCourse.courseLevel,
                 gibbonCourse.modeOfInstruction,
+                COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID,
                 COALESCE(NULLIF(TRIM(gibbonScaleGrade.value), ''), NULLIF(TRIM(gibbonScaleGrade.descriptor), ''), gibbonReportingValue.value) AS letterGrade
-            FROM gibbonCourseClassPerson
-            INNER JOIN gibbonCourseClass ON gibbonCourseClassPerson.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID
-            INNER JOIN gibbonCourse ON gibbonCourseClass.gibbonCourseID = gibbonCourse.gibbonCourseID
-            INNER JOIN gibbonSchoolYear ON gibbonCourse.gibbonSchoolYearID = gibbonSchoolYear.gibbonSchoolYearID
-            INNER JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearID = gibbonSchoolYear.gibbonSchoolYearID
-            LEFT JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = {$cycleMatch}
-            LEFT JOIN gibbonReportingValue
-                ON gibbonReportingValue.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID
-                AND gibbonReportingValue.gibbonPersonIDStudent = gibbonCourseClassPerson.gibbonPersonID
-                AND gibbonReportingValue.gibbonReportingCycleID = gibbonReportingCycle.gibbonReportingCycleID
-            LEFT JOIN gibbonScaleGrade ON gibbonReportingValue.gibbonScaleGradeID = gibbonScaleGrade.gibbonScaleGradeID
+            FROM gibbonReportingValue
+            INNER JOIN gibbonReportingCriteria ON gibbonReportingCriteria.gibbonReportingCriteriaID = gibbonReportingValue.gibbonReportingCriteriaID
+            INNER JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
+                AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
+            INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+            INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+            INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+            INNER JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingValue.gibbonReportingCycleID
+            LEFT JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearTermID = {$termMatch}
             LEFT JOIN gibbonTermAlias ON gibbonTermAlias.gibbonSchoolYearTermID = gibbonSchoolYearTerm.gibbonSchoolYearTermID
-            LEFT JOIN gibbonCoursesAndClasses ON gibbonCoursesAndClasses.courseCode = gibbonCourse.nameShort";
+            LEFT JOIN gibbonScaleGrade ON gibbonScaleGrade.gibbonScaleGradeID = gibbonReportingValue.gibbonScaleGradeID
+            LEFT JOIN gibbonCoursesAndClasses ON gibbonCoursesAndClasses.courseCode = gibbonCourse.nameShort
+            LEFT JOIN gibbonPerson AS modifier ON modifier.gibbonPersonID = gibbonReportingValue.gibbonPersonIDModified";
     }
 
-    private function getReportingCycleMatchSubquery(): string
+    /**
+     * Matches a reporting cycle to a school year term: exact dates, then name, then short name,
+     * then the term containing the cycle's end date.
+     */
+    private function getTermMatchSubquery(string $cycleAlias): string
     {
-        return '(SELECT c.gibbonReportingCycleID
-                FROM gibbonReportingCycle AS c
-                WHERE c.gibbonSchoolYearID = gibbonSchoolYearTerm.gibbonSchoolYearID
+        return "(SELECT t.gibbonSchoolYearTermID
+                FROM gibbonSchoolYearTerm AS t
+                WHERE t.gibbonSchoolYearID = {$cycleAlias}.gibbonSchoolYearID
                 AND (
-                    (c.dateStart = gibbonSchoolYearTerm.firstDay AND c.dateEnd = gibbonSchoolYearTerm.lastDay)
-                    OR c.name = gibbonSchoolYearTerm.name
-                    OR c.nameShort = gibbonSchoolYearTerm.nameShort
+                    ({$cycleAlias}.dateStart = t.firstDay AND {$cycleAlias}.dateEnd = t.lastDay)
+                    OR {$cycleAlias}.name = t.name
+                    OR {$cycleAlias}.nameShort = t.nameShort
+                    OR {$cycleAlias}.dateEnd BETWEEN t.firstDay AND t.lastDay
                 )
                 ORDER BY CASE
-                    WHEN c.dateStart = gibbonSchoolYearTerm.firstDay AND c.dateEnd = gibbonSchoolYearTerm.lastDay THEN 0
-                    ELSE 1
-                END, c.gibbonReportingCycleID
-                LIMIT 1)';
+                    WHEN {$cycleAlias}.dateStart = t.firstDay AND {$cycleAlias}.dateEnd = t.lastDay THEN 0
+                    WHEN {$cycleAlias}.name = t.name THEN 1
+                    WHEN {$cycleAlias}.nameShort = t.nameShort THEN 2
+                    ELSE 3
+                END, t.sequenceNumber
+                LIMIT 1)";
+    }
+
+    /**
+     * Current class enrolments that have no Grade Scale value yet.
+     */
+    public function getStudentUngradedClasses(int $gibbonPersonID): array
+    {
+        $sql = "SELECT
+                gibbonCourseClassPerson.gibbonPersonID,
+                gibbonCourseClass.gibbonCourseClassID,
+                gibbonCourseClass.nameShort AS className,
+                gibbonCourse.gibbonCourseID,
+                gibbonCourse.gibbonSchoolYearID,
+                gibbonSchoolYear.name AS schoolYearName,
+                gibbonCourse.name AS courseName,
+                gibbonCourse.nameShort AS courseCode,
+                gibbonCoursesAndClasses.externalCourseCode,
+                COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits
+            FROM gibbonCourseClassPerson
+            INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonCourseClassPerson.gibbonCourseClassID
+            INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+            INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+            LEFT JOIN gibbonCoursesAndClasses ON gibbonCoursesAndClasses.courseCode = gibbonCourse.nameShort
+            WHERE gibbonCourseClassPerson.gibbonPersonID = :gibbonPersonID
+            AND gibbonCourseClassPerson.role = 'Student'
+            AND NOT EXISTS (
+                SELECT 1
+                FROM gibbonReportingValue AS rv
+                JOIN gibbonReportingCriteria AS crit ON crit.gibbonReportingCriteriaID = rv.gibbonReportingCriteriaID
+                JOIN gibbonReportingCriteriaType AS ct ON ct.gibbonReportingCriteriaTypeID = crit.gibbonReportingCriteriaTypeID AND ct.valueType = 'Grade Scale'
+                WHERE rv.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID
+                AND rv.gibbonPersonIDStudent = gibbonCourseClassPerson.gibbonPersonID
+                AND (rv.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(rv.value, '')) <> '')
+            )
+            ORDER BY gibbonSchoolYear.sequenceNumber, gibbonCourse.nameShort, gibbonCourseClass.nameShort";
+
+        return $this->db()->select($sql, ['gibbonPersonID' => $gibbonPersonID])->fetchAll() ?: [];
+    }
+
+    /**
+     * Grade Scale criteria a class can be graded against, one per reporting cycle (the first by sequence).
+     */
+    public function getGradeCriteriaForClass(int $gibbonCourseClassID): array
+    {
+        $termMatch = $this->getTermMatchSubquery('gibbonReportingCycle');
+
+        $sql = "SELECT gibbonReportingCycle.gibbonReportingCycleID,
+                       gibbonReportingCycle.name AS cycleName,
+                       gibbonReportingCycle.gibbonSchoolYearID,
+                       gibbonReportingCriteria.gibbonReportingCriteriaID,
+                       COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID,
+                       gibbonSchoolYearTerm.gibbonSchoolYearTermID,
+                       gibbonSchoolYearTerm.name AS termName
+                FROM gibbonCourseClass
+                JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                JOIN gibbonReportingScope ON gibbonReportingScope.gibbonReportingCycleID = gibbonReportingCycle.gibbonReportingCycleID AND gibbonReportingScope.scopeType = 'Course'
+                JOIN gibbonReportingCriteria ON gibbonReportingCriteria.gibbonReportingScopeID = gibbonReportingScope.gibbonReportingScopeID
+                    AND gibbonReportingCriteria.target = 'Per Student'
+                    AND (gibbonReportingCriteria.gibbonCourseID IS NULL OR gibbonReportingCriteria.gibbonCourseID = gibbonCourse.gibbonCourseID)
+                JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
+                    AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
+                LEFT JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearTermID = {$termMatch}
+                WHERE gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID
+                ORDER BY gibbonReportingCycle.sequenceNumber, gibbonReportingCycle.dateStart, gibbonReportingScope.sequenceNumber, gibbonReportingCriteria.sequenceNumber";
+
+        $rows = $this->db()->select($sql, ['gibbonCourseClassID' => $gibbonCourseClassID])->fetchAll() ?: [];
+
+        $criteria = [];
+        foreach ($rows as $row) {
+            $cycleID = (int)$row['gibbonReportingCycleID'];
+            if (!isset($criteria[$cycleID])) {
+                $criteria[$cycleID] = $row;
+            }
+        }
+
+        return array_values($criteria);
+    }
+
+    /**
+     * Returns the criterion's cycle, school year and scale when it is a Per Student Grade Scale
+     * criterion that applies to the class; null otherwise.
+     */
+    public function getGradeCriterionForClass(int $gibbonReportingCriteriaID, int $gibbonCourseClassID): ?array
+    {
+        $sql = "SELECT gibbonReportingCriteria.gibbonReportingCriteriaID,
+                       gibbonReportingCycle.gibbonReportingCycleID,
+                       gibbonReportingCycle.gibbonSchoolYearID,
+                       COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID
+                FROM gibbonReportingCriteria
+                JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
+                JOIN gibbonReportingScope ON gibbonReportingScope.gibbonReportingScopeID = gibbonReportingCriteria.gibbonReportingScopeID
+                JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingCriteria.gibbonReportingCycleID
+                JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID
+                JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                WHERE gibbonReportingCriteria.gibbonReportingCriteriaID = :gibbonReportingCriteriaID
+                AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
+                AND gibbonReportingCriteria.target = 'Per Student'
+                AND gibbonReportingScope.scopeType = 'Course'
+                AND gibbonReportingCycle.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                AND (gibbonReportingCriteria.gibbonCourseID IS NULL OR gibbonReportingCriteria.gibbonCourseID = gibbonCourse.gibbonCourseID)";
+
+        $row = $this->db()->selectOne($sql, [
+            'gibbonReportingCriteriaID' => $gibbonReportingCriteriaID,
+            'gibbonCourseClassID' => $gibbonCourseClassID,
+        ]);
+
+        return !empty($row) && is_array($row) ? $row : null;
+    }
+
+    public function isStudentLinkedToClass(int $gibbonPersonID, int $gibbonCourseClassID): bool
+    {
+        $sql = "SELECT (
+                    EXISTS (SELECT 1 FROM gibbonCourseClassPerson WHERE gibbonPersonID = :personEnrolment AND gibbonCourseClassID = :classEnrolment AND role LIKE 'Student%')
+                    OR EXISTS (SELECT 1 FROM gibbonReportingValue WHERE gibbonPersonIDStudent = :personValue AND gibbonCourseClassID = :classValue)
+                ) AS linked";
+
+        return (bool)$this->db()->selectOne($sql, [
+            'personEnrolment' => $gibbonPersonID,
+            'classEnrolment' => $gibbonCourseClassID,
+            'personValue' => $gibbonPersonID,
+            'classValue' => $gibbonCourseClassID,
+        ]);
+    }
+
+    public function scaleGradeBelongsToScale(int $gibbonScaleGradeID, int $gibbonScaleID): bool
+    {
+        $sql = "SELECT COUNT(*) FROM gibbonScaleGrade WHERE gibbonScaleGradeID = :gibbonScaleGradeID AND gibbonScaleID = :gibbonScaleID";
+
+        return (int)$this->db()->selectOne($sql, [
+            'gibbonScaleGradeID' => $gibbonScaleGradeID,
+            'gibbonScaleID' => $gibbonScaleID,
+        ]) > 0;
     }
 
     public function getGradeScaleOptionsByScaleID(?int $gibbonScaleID): array
@@ -134,92 +275,35 @@ class TranscriptGateway extends QueryableGateway
         return $options;
     }
 
-    public function getGradeScaleIDForGrade(?int $gibbonScaleGradeID): int
+    public function getTermsBySchoolYear(int $gibbonSchoolYearID): array
     {
-        if (empty($gibbonScaleGradeID)) {
-            return 0;
-        }
+        $sql = "SELECT gibbonSchoolYearTermID, name
+                FROM gibbonSchoolYearTerm
+                WHERE gibbonSchoolYearID = :gibbonSchoolYearID
+                ORDER BY sequenceNumber";
 
-        return (int)$this->db()->selectOne(
-            "SELECT gibbonScaleID FROM gibbonScaleGrade WHERE gibbonScaleGradeID = :gibbonScaleGradeID",
-            ['gibbonScaleGradeID' => $gibbonScaleGradeID]
-        );
+        $rows = $this->db()->select($sql, ['gibbonSchoolYearID' => $gibbonSchoolYearID])->fetchAll() ?: [];
+
+        return array_column($rows, 'name', 'gibbonSchoolYearTermID');
     }
 
-    public function getGradeScaleChoices(): array
+    /**
+     * The term in which the class has the most Planner lessons, or 0 when it has none.
+     */
+    public function getPlannerTermIDForClass(int $gibbonCourseClassID): int
     {
-        $rows = $this->db()->select(
-            "SELECT gibbonScaleID, name, nameShort, active
-             FROM gibbonScale
-             ORDER BY (active = 'Y') DESC, (nameShort IN ('FLG', 'SLG')) DESC, name"
-        )->fetchAll();
+        $sql = "SELECT gibbonSchoolYearTerm.gibbonSchoolYearTermID
+                FROM gibbonPlannerEntry
+                JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonPlannerEntry.gibbonCourseClassID
+                JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                    AND gibbonPlannerEntry.date BETWEEN gibbonSchoolYearTerm.firstDay AND gibbonSchoolYearTerm.lastDay
+                WHERE gibbonPlannerEntry.gibbonCourseClassID = :gibbonCourseClassID
+                GROUP BY gibbonSchoolYearTerm.gibbonSchoolYearTermID, gibbonSchoolYearTerm.sequenceNumber
+                ORDER BY COUNT(*) DESC, gibbonSchoolYearTerm.sequenceNumber
+                LIMIT 1";
 
-        $options = [];
-        foreach ($rows as $row) {
-            $label = $row['name'];
-            if (!empty($row['nameShort']) && $row['nameShort'] !== $row['name']) {
-                $label .= ' ('.$row['nameShort'].')';
-            }
-            if (($row['active'] ?? 'Y') !== 'Y') {
-                $label .= ' — '.__('Inactive');
-            }
-            $options[$row['gibbonScaleID']] = $label;
-        }
-
-        return $options;
-    }
-
-    public function getChainedGradeScaleOptions(): array
-    {
-        $rows = $this->db()->select(
-            "SELECT gibbonScaleGrade.gibbonScaleGradeID, gibbonScaleGrade.gibbonScaleID, gibbonScaleGrade.value, gibbonScaleGrade.descriptor
-             FROM gibbonScaleGrade
-             JOIN gibbonScale ON gibbonScale.gibbonScaleID = gibbonScaleGrade.gibbonScaleID
-             ORDER BY gibbonScale.name, gibbonScaleGrade.sequenceNumber, gibbonScaleGrade.value"
-        )->fetchAll();
-
-        $options = [];
-        $chained = [];
-        foreach ($rows as $row) {
-            $label = trim(($row['value'] ?? '').(!empty($row['descriptor']) && $row['descriptor'] !== $row['value'] ? ' — '.$row['descriptor'] : ''));
-            $options[$row['gibbonScaleGradeID']] = $label !== '' ? $label : $row['gibbonScaleGradeID'];
-            $chained[$row['gibbonScaleGradeID']] = $row['gibbonScaleID'];
-        }
-
-        return [$options, $chained];
-    }
-
-    public function getGradeScaleOptions(?int $gibbonScaleGradeID): array
-    {
-        if (empty($gibbonScaleGradeID)) {
-            return [];
-        }
-
-        $sql = "SELECT selected.gibbonScaleID
-                FROM gibbonScaleGrade AS selected
-                WHERE selected.gibbonScaleGradeID = :gibbonScaleGradeID";
-
-        $gibbonScaleID = $this->db()->selectOne($sql, ['gibbonScaleGradeID' => $gibbonScaleGradeID]);
-
-        return $this->getGradeScaleOptionsByScaleID((int)$gibbonScaleID);
-    }
-
-    public function getReportingCyclesForClass(int $gibbonCourseClassID): array
-    {
-        $sql = "SELECT gibbonReportingCycle.gibbonReportingCycleID, gibbonReportingCycle.name
-                FROM gibbonCourseClass
-                JOIN gibbonCourse ON (gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID)
-                JOIN gibbonReportingCycle ON (gibbonReportingCycle.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID)
-                WHERE gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID
-                ORDER BY gibbonReportingCycle.sequenceNumber, gibbonReportingCycle.dateStart, gibbonReportingCycle.name";
-
-        $rows = $this->db()->select($sql, ['gibbonCourseClassID' => $gibbonCourseClassID])->fetchAll();
-        $options = [];
-        foreach ($rows as $row) {
-            $options[$row['gibbonReportingCycleID']] = $row['name'];
-        }
-
-        return $options;
+        return (int)$this->db()->selectOne($sql, ['gibbonCourseClassID' => $gibbonCourseClassID]);
     }
 
     public function getReportingCycleIDForTerm(int $gibbonSchoolYearTermID): int
@@ -246,6 +330,10 @@ class TranscriptGateway extends QueryableGateway
         return (int)$this->db()->selectOne($sql, ['gibbonSchoolYearTermID' => $gibbonSchoolYearTermID]);
     }
 
+    /**
+     * Creates (or completes) the reporting cycle, Course scope and Grade Scale criterion for a term.
+     * Only called from the explicit "Set up grading for this term" action.
+     */
     public function ensureReportingCycleForTerm(int $gibbonSchoolYearTermID): int
     {
         $existing = $this->getReportingCycleIDForTerm($gibbonSchoolYearTermID);
@@ -313,7 +401,10 @@ class TranscriptGateway extends QueryableGateway
             "SELECT gibbonReportingCriteria.gibbonReportingCriteriaID
              FROM gibbonReportingCriteria
              JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
+             JOIN gibbonReportingScope ON gibbonReportingScope.gibbonReportingScopeID = gibbonReportingCriteria.gibbonReportingScopeID AND gibbonReportingScope.scopeType = 'Course'
              WHERE gibbonReportingCriteria.gibbonReportingCycleID = :gibbonReportingCycleID
+             AND gibbonReportingCriteria.gibbonCourseID IS NULL
+             AND gibbonReportingCriteria.target = 'Per Student'
              AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
              LIMIT 1",
             ['gibbonReportingCycleID' => $gibbonReportingCycleID]
@@ -384,175 +475,73 @@ class TranscriptGateway extends QueryableGateway
         );
     }
 
-    public function getTermNameByID(int $gibbonSchoolYearTermID): string
+    /**
+     * Reporting values the transcript cannot place: no criterion, a deleted criterion, or no cycle.
+     */
+    public function selectOrphanReportingValues(): array
     {
-        if ($gibbonSchoolYearTermID <= 0) {
-            return '';
-        }
+        $sql = "SELECT gibbonReportingValue.gibbonReportingValueID,
+                       gibbonReportingValue.gibbonPersonIDStudent,
+                       student.surname, student.preferredName,
+                       gibbonCourse.nameShort AS courseCode,
+                       gibbonCourseClass.nameShort AS className,
+                       gibbonSchoolYear.name AS schoolYearName,
+                       gibbonReportingValue.value,
+                       gibbonReportingValue.timestampModified,
+                       CASE
+                           WHEN gibbonReportingValue.gibbonReportingCriteriaID IS NULL THEN 'No criterion'
+                           WHEN gibbonReportingCriteria.gibbonReportingCriteriaID IS NULL THEN 'Criterion deleted'
+                           ELSE 'No reporting cycle'
+                       END AS issue
+                FROM gibbonReportingValue
+                LEFT JOIN gibbonReportingCriteria ON gibbonReportingCriteria.gibbonReportingCriteriaID = gibbonReportingValue.gibbonReportingCriteriaID
+                LEFT JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingValue.gibbonReportingCycleID
+                LEFT JOIN gibbonPerson AS student ON student.gibbonPersonID = gibbonReportingValue.gibbonPersonIDStudent
+                LEFT JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+                LEFT JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                LEFT JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                WHERE gibbonReportingValue.gibbonReportingCriteriaID IS NULL
+                OR gibbonReportingCriteria.gibbonReportingCriteriaID IS NULL
+                OR gibbonReportingCycle.gibbonReportingCycleID IS NULL
+                ORDER BY student.surname, student.preferredName, gibbonSchoolYear.sequenceNumber, gibbonCourse.nameShort";
 
-        $name = $this->db()->selectOne(
-            'SELECT name FROM gibbonSchoolYearTerm WHERE gibbonSchoolYearTermID = :gibbonSchoolYearTermID',
-            ['gibbonSchoolYearTermID' => $gibbonSchoolYearTermID]
-        );
-
-        return is_string($name) ? $name : '';
+        return $this->db()->select($sql)->fetchAll() ?: [];
     }
 
-    public function getDefaultGradeScaleIDForClass(int $gibbonCourseClassID, int $gibbonReportingCycleID = 0): ?int
+    /**
+     * Students with more than one Grade Scale value for the same class and term.
+     * The transcript shows only the latest; the others are listed here for review.
+     */
+    public function selectDuplicateGradeValues(): array
     {
-        $context = $this->getReportingContextForClass($gibbonCourseClassID, $gibbonReportingCycleID);
+        $termMatch = $this->getTermMatchSubquery('gibbonReportingCycle');
 
-        return !empty($context['gibbonScaleID']) ? (int)$context['gibbonScaleID'] : null;
-    }
+        $sql = "SELECT gibbonReportingValue.gibbonPersonIDStudent,
+                       student.surname, student.preferredName,
+                       gibbonCourse.nameShort AS courseCode,
+                       gibbonCourseClass.nameShort AS className,
+                       gibbonSchoolYear.name AS schoolYearName,
+                       COALESCE(gibbonSchoolYearTerm.name, '') AS termName,
+                       COUNT(*) AS valueCount,
+                       GROUP_CONCAT(CONCAT(gibbonReportingCycle.name, ' / ', gibbonReportingCriteria.name, ': ', COALESCE(gibbonScaleGrade.value, gibbonReportingValue.value, ''))
+                           ORDER BY gibbonReportingCycle.sequenceNumber, gibbonReportingCycle.dateEnd, gibbonReportingCriteria.sequenceNumber SEPARATOR '; ') AS grades
+                FROM gibbonReportingValue
+                JOIN gibbonReportingCriteria ON gibbonReportingCriteria.gibbonReportingCriteriaID = gibbonReportingValue.gibbonReportingCriteriaID
+                JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
+                JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingValue.gibbonReportingCycleID
+                JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+                JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                LEFT JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearTermID = {$termMatch}
+                LEFT JOIN gibbonScaleGrade ON gibbonScaleGrade.gibbonScaleGradeID = gibbonReportingValue.gibbonScaleGradeID
+                LEFT JOIN gibbonPerson AS student ON student.gibbonPersonID = gibbonReportingValue.gibbonPersonIDStudent
+                WHERE (gibbonReportingValue.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(gibbonReportingValue.value, '')) <> '')
+                GROUP BY gibbonReportingValue.gibbonPersonIDStudent, gibbonReportingValue.gibbonCourseClassID, COALESCE(gibbonSchoolYearTerm.gibbonSchoolYearTermID, CONCAT('cycle', gibbonReportingCycle.gibbonReportingCycleID)),
+                         student.surname, student.preferredName, gibbonCourse.nameShort, gibbonCourseClass.nameShort, gibbonSchoolYear.name, gibbonSchoolYear.sequenceNumber, gibbonSchoolYearTerm.name
+                HAVING COUNT(*) > 1
+                ORDER BY student.surname, student.preferredName, gibbonSchoolYear.sequenceNumber, gibbonCourse.nameShort";
 
-    public function getReportingContextForClass(int $gibbonCourseClassID, int $gibbonReportingCycleID = 0): ?array
-    {
-        $sql = "SELECT gibbonReportingCycle.gibbonReportingCycleID,
-                       gibbonReportingCycle.gibbonSchoolYearID,
-                       gibbonReportingCriteria.gibbonReportingCriteriaID,
-                       COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID
-                FROM gibbonCourseClass
-                JOIN gibbonCourse ON (gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID)
-                JOIN gibbonReportingCycle ON (gibbonReportingCycle.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID)
-                JOIN gibbonReportingScope ON (gibbonReportingScope.gibbonReportingCycleID = gibbonReportingCycle.gibbonReportingCycleID AND gibbonReportingScope.scopeType = 'Course')
-                JOIN gibbonReportingCriteria ON (
-                    gibbonReportingCriteria.gibbonReportingScopeID = gibbonReportingScope.gibbonReportingScopeID
-                    AND (gibbonReportingCriteria.gibbonCourseID IS NULL OR gibbonReportingCriteria.gibbonCourseID = gibbonCourse.gibbonCourseID)
-                )
-                JOIN gibbonReportingCriteriaType ON (gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID)
-                WHERE gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID
-                AND gibbonReportingCriteriaType.valueType = 'Grade Scale'";
-
-        $params = ['gibbonCourseClassID' => $gibbonCourseClassID];
-        if ($gibbonReportingCycleID > 0) {
-            $sql .= " AND gibbonReportingCycle.gibbonReportingCycleID = :gibbonReportingCycleID";
-            $params['gibbonReportingCycleID'] = $gibbonReportingCycleID;
-        }
-
-        $sql .= " ORDER BY gibbonReportingCycle.sequenceNumber ASC, gibbonReportingCycle.gibbonReportingCycleID ASC, gibbonReportingCriteria.sequenceNumber ASC
-                LIMIT 1";
-
-        $row = $this->db()->selectOne($sql, $params);
-
-        return !empty($row) ? $row : null;
-    }
-
-    public function getLetterGradeOptions(): array
-    {
-        return [
-            'A+' => 'A+',
-            'A' => 'A',
-            'A-' => 'A-',
-            'B+' => 'B+',
-            'B' => 'B',
-            'B-' => 'B-',
-            'C+' => 'C+',
-            'C' => 'C',
-            'C-' => 'C-',
-            'D+' => 'D+',
-            'D' => 'D',
-            'F' => 'F',
-        ];
-    }
-
-    public function getGradeScaleValueByID(int $gibbonScaleGradeID): ?string
-    {
-        if ($gibbonScaleGradeID <= 0) {
-            return null;
-        }
-
-        $sql = "SELECT value FROM gibbonScaleGrade WHERE gibbonScaleGradeID=:gibbonScaleGradeID";
-        $value = $this->db()->selectOne($sql, ['gibbonScaleGradeID' => $gibbonScaleGradeID]);
-
-        return $value !== false && $value !== null ? (string) $value : null;
-    }
-
-    public function saveReportingGrade(array $record, ?int $gibbonScaleGradeID, ?string $value, int $gibbonPersonID): ?int
-    {
-        $existingID = (int)($record['gibbonReportingValueID'] ?? 0);
-        $cycleID = (int)($record['gibbonReportingCycleID'] ?? 0);
-
-        if ($existingID <= 0 && $cycleID > 0) {
-            $existingID = (int)$this->db()->selectOne(
-                "SELECT gibbonReportingValueID
-                 FROM gibbonReportingValue
-                 WHERE gibbonCourseClassID = :gibbonCourseClassID
-                 AND gibbonPersonIDStudent = :gibbonPersonIDStudent
-                 AND gibbonReportingCycleID = :gibbonReportingCycleID
-                 ORDER BY gibbonReportingValueID DESC
-                 LIMIT 1",
-                [
-                    'gibbonCourseClassID' => $record['gibbonCourseClassID'],
-                    'gibbonPersonIDStudent' => $record['gibbonPersonID'],
-                    'gibbonReportingCycleID' => $cycleID,
-                ]
-            );
-        }
-
-        if ($existingID > 0) {
-            $updated = $this->updateReportingGrade($existingID, $gibbonScaleGradeID, $value, $gibbonPersonID, $cycleID);
-
-            return $updated ? $existingID : null;
-        }
-
-        $context = $this->getReportingContextForClass(
-            (int)$record['gibbonCourseClassID'],
-            $cycleID
-        );
-        if (empty($context)) {
-            $context = [
-                'gibbonReportingCycleID' => $cycleID > 0 ? $cycleID : null,
-                'gibbonReportingCriteriaID' => null,
-                'gibbonSchoolYearID' => $record['gibbonSchoolYearID'] ?? null,
-            ];
-        }
-
-        $sql = "INSERT INTO gibbonReportingValue
-                    (gibbonReportingCycleID, gibbonReportingCriteriaID, gibbonSchoolYearID, gibbonCourseClassID, gibbonPersonIDStudent, gibbonScaleGradeID, value, gibbonPersonIDCreated, timestampCreated, gibbonPersonIDModified, timestampModified)
-                VALUES
-                    (:gibbonReportingCycleID, :gibbonReportingCriteriaID, :gibbonSchoolYearID, :gibbonCourseClassID, :gibbonPersonIDStudent, :gibbonScaleGradeID, :value, :gibbonPersonIDCreated, :timestampCreated, :gibbonPersonIDModified, :timestampModified)";
-
-        $now = date('Y-m-d H:i:s');
-        $inserted = $this->db()->insert($sql, [
-            'gibbonReportingCycleID' => $cycleID > 0 ? $cycleID : ($context['gibbonReportingCycleID'] ?? null),
-            'gibbonReportingCriteriaID' => $context['gibbonReportingCriteriaID'],
-            'gibbonSchoolYearID' => $context['gibbonSchoolYearID'] ?? $record['gibbonSchoolYearID'],
-            'gibbonCourseClassID' => $record['gibbonCourseClassID'],
-            'gibbonPersonIDStudent' => $record['gibbonPersonID'],
-            'gibbonScaleGradeID' => $gibbonScaleGradeID,
-            'value' => $value,
-            'gibbonPersonIDCreated' => $gibbonPersonID,
-            'timestampCreated' => $now,
-            'gibbonPersonIDModified' => $gibbonPersonID,
-            'timestampModified' => $now,
-        ]);
-
-        return !empty($inserted) ? (int) $inserted : null;
-    }
-
-    public function updateReportingGrade(int $gibbonReportingValueID, ?int $gibbonScaleGradeID, ?string $value, int $gibbonPersonIDModified, int $gibbonReportingCycleID = 0): bool
-    {
-        $sql = "UPDATE gibbonReportingValue
-                SET gibbonScaleGradeID = :gibbonScaleGradeID,
-                    value = :value,
-                    gibbonPersonIDModified = :gibbonPersonIDModified,
-                    timestampModified = :timestampModified";
-        $params = [
-            'gibbonScaleGradeID' => $gibbonScaleGradeID,
-            'value' => $value,
-            'gibbonPersonIDModified' => $gibbonPersonIDModified,
-            'timestampModified' => date('Y-m-d H:i:s'),
-            'gibbonReportingValueID' => $gibbonReportingValueID,
-        ];
-
-        if ($gibbonReportingCycleID > 0) {
-            $sql .= ", gibbonReportingCycleID = :gibbonReportingCycleID";
-            $params['gibbonReportingCycleID'] = $gibbonReportingCycleID;
-        }
-
-        $sql .= " WHERE gibbonReportingValueID = :gibbonReportingValueID";
-
-        return $this->db()->update($sql, $params);
+        return $this->db()->select($sql)->fetchAll() ?: [];
     }
 
     public function getTermAliases(): array

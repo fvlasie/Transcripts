@@ -5,7 +5,6 @@ use Gibbon\Domain\System\SettingGateway;
 use Gibbon\Domain\User\UserGateway;
 use Gibbon\Module\Transcripts\Domain\TranscriptGateway;
 use Gibbon\Module\Transcripts\Domain\StudentProgramGateway;
-use Gibbon\Module\Transcripts\Domain\CourseProgramGateway;
 use Gibbon\Module\Transcripts\Services\TranscriptService;
 use Gibbon\Module\Transcripts\Services\TranscriptPdfService;
 
@@ -48,7 +47,7 @@ if (!canViewStudentTranscript($pdo, $highestAction, $gibbonPersonIDViewer, $gibb
 try {
     $transcriptGateway = $container->get(TranscriptGateway::class);
     $programGateway = $container->get(StudentProgramGateway::class);
-    $transcriptService = new TranscriptService($transcriptGateway, $programGateway, $container->get(CourseProgramGateway::class));
+    $transcriptService = new TranscriptService($transcriptGateway, $programGateway);
 
     $pdfService = new TranscriptPdfService(
         $transcriptService,

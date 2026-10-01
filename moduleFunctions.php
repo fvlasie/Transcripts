@@ -103,17 +103,44 @@ function checkAndMigrateTranscriptsSchema($pdo)
     }
 
     try {
-        $pdo->statement("CREATE TABLE IF NOT EXISTS `gibbonTranscriptsCourseProgram` (
-            `gibbonTranscriptsCourseProgramID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-            `courseCode` VARCHAR(60) NOT NULL,
-            `programType` ENUM('MTS', 'BTh', 'Certificate', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree') NOT NULL,
-            PRIMARY KEY (`gibbonTranscriptsCourseProgramID`),
-            UNIQUE KEY `courseProgram` (`courseCode`, `programType`),
-            KEY `programType` (`programType`)
+        $pdo->statement("CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (
+            `gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL,
+            `ecclesiasticalName` VARCHAR(50) NOT NULL,
+            `secularAlias` VARCHAR(50) NOT NULL,
+            `notes` VARCHAR(255) DEFAULT NULL,
+            PRIMARY KEY (`gibbonTermAliasID`),
+            UNIQUE KEY `gibbonSchoolYearTermID` (`gibbonSchoolYearTermID`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Exception $e) {
         // Table may already exist or be unavailable during install.
     }
+}
+
+/**
+ * The course catalog (external code, credits) belongs to Courses and Classes; its classes are
+ * not on the core autoloader when a Transcripts page is running.
+ */
+function registerCoursesAndClassesAutoloader(string $absolutePath): void
+{
+    static $registered = false;
+    if ($registered) {
+        return;
+    }
+    $registered = true;
+
+    $baseDir = rtrim($absolutePath, '/').'/modules/Courses and Classes/src/';
+    spl_autoload_register(function ($class) use ($baseDir) {
+        $prefix = 'Gibbon\\Module\\CoursesAndClasses\\';
+        if (strncmp($prefix, $class, strlen($prefix)) !== 0) {
+            return;
+        }
+
+        $file = $baseDir.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
+    });
 }
 
 function getTranscriptsProgramTypes(): array
@@ -240,61 +267,274 @@ function getTeacherStudentOptions($pdo, int $gibbonSchoolYearID, int $gibbonPers
     return $options;
 }
 
-function canViewStudentTranscript($pdo, string $highestAction, int $gibbonPersonIDViewer, int $gibbonPersonIDStudent, int $gibbonSchoolYearID): bool
+/**
+ * Every person who has ever been enrolled as a student or has a grade, in any year and with any
+ * status, grouped so registrars can find alumni and leavers as easily as current students.
+ */
+function getTranscriptStudentOptions($pdo): array
+{
+    $sql = "SELECT gibbonPerson.gibbonPersonID, gibbonPerson.surname, gibbonPerson.preferredName, gibbonPerson.username, gibbonPerson.status,
+                (SELECT gibbonSchoolYear.name
+                    FROM gibbonStudentEnrolment
+                    JOIN gibbonSchoolYear ON (gibbonSchoolYear.gibbonSchoolYearID=gibbonStudentEnrolment.gibbonSchoolYearID)
+                    WHERE gibbonStudentEnrolment.gibbonPersonID=gibbonPerson.gibbonPersonID
+                    ORDER BY gibbonSchoolYear.sequenceNumber DESC
+                    LIMIT 1) AS lastSchoolYear
+            FROM gibbonPerson
+            WHERE EXISTS (SELECT 1 FROM gibbonStudentEnrolment WHERE gibbonStudentEnrolment.gibbonPersonID=gibbonPerson.gibbonPersonID)
+            OR EXISTS (SELECT 1 FROM gibbonReportingValue WHERE gibbonReportingValue.gibbonPersonIDStudent=gibbonPerson.gibbonPersonID)
+            ORDER BY gibbonPerson.surname, gibbonPerson.preferredName";
+
+    $groups = [
+        'Full' => __('Current Students'),
+        'Left' => __('Left / Alumni'),
+        'Expected' => __('Expected'),
+        'Pending' => __('Pending'),
+    ];
+
+    $options = [];
+    foreach ($pdo->select($sql)->fetchAll() as $row) {
+        $group = $groups[$row['status']] ?? __('Other');
+        $label = \Gibbon\Services\Format::name('', $row['preferredName'], $row['surname'], 'Student', true);
+        $label .= !empty($row['username']) ? ' ('.$row['username'].')' : '';
+        $label .= !empty($row['lastSchoolYear']) ? ' – '.$row['lastSchoolYear'] : '';
+        $options[$group][$row['gibbonPersonID']] = $label;
+    }
+
+    $ordered = [];
+    foreach (array_merge(array_values($groups), [__('Other')]) as $group) {
+        if (!empty($options[$group])) {
+            $ordered[$group] = $options[$group];
+        }
+    }
+
+    return $ordered;
+}
+
+/**
+ * Returns null when the viewer may see the student's transcript, otherwise the reason they cannot.
+ */
+function getTranscriptAccessDenialReason($pdo, string $highestAction, int $gibbonPersonIDViewer, int $gibbonPersonIDStudent, int $gibbonSchoolYearID): ?string
 {
     if ($gibbonPersonIDStudent <= 0) {
-        return false;
+        return __('No student was selected.');
     }
 
     if ($highestAction === 'Generate Transcripts_myTranscript') {
-        return $gibbonPersonIDViewer === $gibbonPersonIDStudent;
+        return $gibbonPersonIDViewer === $gibbonPersonIDStudent
+            ? null
+            : __('You can only view your own transcript.');
     }
 
     if ($highestAction === 'Generate Transcripts_myStudents') {
         $students = getTeacherStudentOptions($pdo, $gibbonSchoolYearID, $gibbonPersonIDViewer);
 
-        return isset($students[$gibbonPersonIDStudent]);
+        return isset($students[$gibbonPersonIDStudent])
+            ? null
+            : __('You can only view transcripts for current students in the classes you teach this school year.');
     }
 
     if ($highestAction === 'Generate Transcripts_all') {
-        $sql = "SELECT gibbonPerson.gibbonPersonID
-                FROM gibbonPerson
-                JOIN gibbonStudentEnrolment ON (gibbonPerson.gibbonPersonID=gibbonStudentEnrolment.gibbonPersonID)
-                WHERE gibbonPerson.gibbonPersonID=:gibbonPersonID
-                AND gibbonStudentEnrolment.gibbonSchoolYearID=:gibbonSchoolYearID
-                AND gibbonPerson.status='Full'
-                AND (gibbonPerson.dateStart IS NULL OR gibbonPerson.dateStart<=:date)
-                AND (gibbonPerson.dateEnd IS NULL OR gibbonPerson.dateEnd>=:date)";
+        $person = $pdo->selectOne(
+            "SELECT gibbonPersonID,
+                EXISTS (SELECT 1 FROM gibbonStudentEnrolment WHERE gibbonStudentEnrolment.gibbonPersonID=gibbonPerson.gibbonPersonID)
+                OR EXISTS (SELECT 1 FROM gibbonReportingValue WHERE gibbonReportingValue.gibbonPersonIDStudent=gibbonPerson.gibbonPersonID) AS isStudent
+             FROM gibbonPerson
+             WHERE gibbonPersonID=:gibbonPersonID",
+            ['gibbonPersonID' => $gibbonPersonIDStudent]
+        );
 
-        $row = $pdo->selectOne($sql, [
-            'gibbonPersonID' => $gibbonPersonIDStudent,
-            'gibbonSchoolYearID' => $gibbonSchoolYearID,
-            'date' => date('Y-m-d'),
-        ]);
+        if (empty($person)) {
+            return __('The selected person could not be found.');
+        }
 
-        return !empty($row);
+        return !empty($person['isStudent'])
+            ? null
+            : __('This person has never been enrolled as a student and has no grades.');
     }
 
-    return false;
+    return __('You do not have access to this action.');
 }
 
-function getTranscriptsProgramCourseLevel(array $program): string
+function canViewStudentTranscript($pdo, string $highestAction, int $gibbonPersonIDViewer, int $gibbonPersonIDStudent, int $gibbonSchoolYearID): bool
 {
-    if (($program['concentration'] ?? '') === 'Certificate') {
-        return 'Certificate';
+    return getTranscriptAccessDenialReason($pdo, $highestAction, $gibbonPersonIDViewer, $gibbonPersonIDStudent, $gibbonSchoolYearID) === null;
+}
+
+/**
+ * Grade options for an editable cell: one group per reporting cycle the class can be graded in,
+ * with values encoded as "criteriaID:scaleGradeID".
+ */
+function buildTranscriptGradeChoices($transcriptGateway, array $criteriaRows, array &$scaleCache): array
+{
+    $choices = [];
+    foreach ($criteriaRows as $criteria) {
+        $scaleID = (int)($criteria['gibbonScaleID'] ?? 0);
+        if (!isset($scaleCache[$scaleID])) {
+            $scaleCache[$scaleID] = $transcriptGateway->getGradeScaleOptionsByScaleID($scaleID);
+        }
+
+        $choices[] = [
+            'gibbonReportingCriteriaID' => (int)$criteria['gibbonReportingCriteriaID'],
+            'label' => $criteria['termName'] ?: ($criteria['cycleName'] ?? ''),
+            'grades' => $scaleCache[$scaleID],
+        ];
     }
 
-    $map = [
-        'MTS' => 'MTS',
-        'BTh' => 'BTh',
-        'Certificate' => 'Certificate',
-        'Iconography' => 'Non-Degree',
-        'Iconology' => 'Non-Degree',
-        'Gap-Year' => 'Non-Degree',
-        'Non-Degree' => 'Non-Degree',
+    return $choices;
+}
+
+function renderTranscriptLastChanged(array $row): string
+{
+    if (empty($row['timestampModified']) || empty($row['modifiedSurname'])) {
+        return '';
+    }
+
+    $name = \Gibbon\Services\Format::name($row['modifiedTitle'] ?? '', $row['modifiedPreferredName'] ?? '', $row['modifiedSurname'], 'Staff', false, true);
+
+    return '<div class="text-xxs text-gray-600 mt-1">'.sprintf(__('Last changed by %1$s on %2$s'), htmlspecialchars($name), \Gibbon\Services\Format::dateTime($row['timestampModified'])).'</div>';
+}
+
+/**
+ * In-place grade select. Graded rows offer their own criterion only; ungraded rows offer every
+ * cycle the class can be graded in and reload the page once saved.
+ */
+function renderTranscriptGradeCell(array $row, array $choices, array $context, bool $reloadOnSave = false): string
+{
+    $classID = (int)($row['gibbonCourseClassID'] ?? 0);
+    $criteriaID = (int)($row['gibbonReportingCriteriaID'] ?? 0);
+    $selectedGradeID = (int)($row['gibbonScaleGradeID'] ?? 0);
+    $currentLabel = trim((string)($row['letterGrade'] ?? ''));
+
+    if (empty($choices)) {
+        return '<div class="transcriptGradeCell">'.htmlspecialchars($currentLabel !== '' ? $currentLabel : '-').renderTranscriptLastChanged($row).'</div>';
+    }
+
+    $vals = [
+        'action' => 'saveGrade',
+        'csrftoken' => $context['csrftoken'],
+        'gibbonPersonID' => $context['gibbonPersonID'],
+        'gibbonCourseClassID' => $classID,
+        'reload' => $reloadOnSave ? 'Y' : 'N',
     ];
 
-    return $map[$program['programType'] ?? ''] ?? 'BTh';
+    $html = '<div class="transcriptGradeCell">';
+    $html .= '<select name="grade" class="w-full max-w-xs" aria-label="'.__('Grade').'"'
+        .' hx-post="'.htmlspecialchars($context['ajaxURL']).'" hx-trigger="change" hx-target="closest .transcriptGradeCell" hx-swap="outerHTML"'
+        .' hx-vals="'.htmlspecialchars(json_encode($vals), ENT_QUOTES).'">';
+
+    if ($criteriaID > 0) {
+        if ($selectedGradeID <= 0) {
+            $html .= '<option value="" selected disabled>'.htmlspecialchars($currentLabel !== '' ? $currentLabel : '-').'</option>';
+        }
+        $html .= '<option value="'.$criteriaID.':">'.__('Clear grade').'</option>';
+    } else {
+        $html .= '<option value="" selected disabled>'.__('Select grade').'</option>';
+    }
+
+    foreach ($choices as $choice) {
+        $useGroup = $criteriaID <= 0 && count($choices) > 1;
+        if ($useGroup) {
+            $html .= '<optgroup label="'.htmlspecialchars($choice['label']).'">';
+        }
+        foreach ($choice['grades'] as $gradeID => $label) {
+            $selected = $choice['gibbonReportingCriteriaID'] === $criteriaID && (int)$gradeID === $selectedGradeID;
+            $html .= '<option value="'.$choice['gibbonReportingCriteriaID'].':'.(int)$gradeID.'"'.($selected ? ' selected' : '').'>'.htmlspecialchars($label).'</option>';
+        }
+        if ($useGroup) {
+            $html .= '</optgroup>';
+        }
+    }
+
+    $html .= '</select>';
+    $html .= renderTranscriptLastChanged($row);
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * In-place input for a course catalog field (external code or credits), shared with Courses and Classes.
+ */
+function renderTranscriptCatalogInput(array $row, string $field, array $context): string
+{
+    $courseCode = (string)($row['courseCode'] ?? '');
+    $vals = [
+        'action' => 'saveCatalog',
+        'csrftoken' => $context['csrftoken'],
+        'gibbonPersonID' => $context['gibbonPersonID'],
+        'courseCode' => $courseCode,
+        'field' => $field,
+    ];
+
+    $warning = sprintf(__('This changes course %1$s for every student and every year, including tuition billing.'), $courseCode);
+    $common = ' name="value" hx-post="'.htmlspecialchars($context['ajaxURL']).'" hx-trigger="change" hx-swap="none"'
+        .' hx-vals="'.htmlspecialchars(json_encode($vals), ENT_QUOTES).'"'
+        .' data-catalog-confirm="'.htmlspecialchars($warning).'" data-course-code="'.htmlspecialchars($courseCode).'"';
+
+    if ($field === 'credits') {
+        $value = number_format((float)($row['credits'] ?? 0), 2, '.', '');
+
+        return '<input type="number" step="0.01" min="0" max="99.99" class="w-20 text-right" aria-label="'.__('Credits').'" value="'.$value.'"'.$common.'>';
+    }
+
+    return '<input type="text" maxlength="255" class="w-28" aria-label="'.__('External Course Code').'" value="'.htmlspecialchars((string)($row['externalCourseCode'] ?? '')).'"'.$common.'>';
+}
+
+function renderTranscriptSummary(array $transcriptData, ?array $selectedProgram, string $printUrl, bool $isOfficial, bool $outOfBand = false): string
+{
+    $html = '<div id="transcriptSummary" class="linkTop"'.($outOfBand ? ' hx-swap-oob="true"' : '').'>';
+    if (!empty($selectedProgram)) {
+        $html .= '<strong>'.__('Program').':</strong> '.htmlspecialchars(formatTranscriptsProgramLabel($selectedProgram)).' | ';
+    }
+    $html .= '<strong>'.__('Cumulative GPA').':</strong> '.renderGpaBadge($transcriptData['cumulativeGPA']);
+    $html .= ' | <strong>'.__('Total Credits Earned').':</strong> '.number_format((float)$transcriptData['totalCredits'], 2);
+    $html .= ' | <a href="'.htmlspecialchars($printUrl).'" target="_blank">'.($isOfficial ? __('Official PDF') : __('Unofficial PDF')).'</a>';
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * Confirms the first catalog edit per course per browser session, and surfaces save errors.
+ */
+function renderTranscriptInlineEditScript(): string
+{
+    return <<<'HTML'
+<script>
+(function () {
+    if (window.transcriptsInlineEdit) return;
+    window.transcriptsInlineEdit = true;
+
+    document.body.addEventListener('htmx:confirm', function (evt) {
+        var el = evt.detail.elt;
+        if (!el || !el.dataset || !el.dataset.catalogConfirm) return;
+
+        var key = 'transcriptsCatalogConfirmed:' + el.dataset.courseCode;
+        try {
+            if (window.sessionStorage.getItem(key)) return;
+        } catch (e) {}
+
+        evt.preventDefault();
+        if (window.confirm(el.dataset.catalogConfirm)) {
+            try { window.sessionStorage.setItem(key, '1'); } catch (e) {}
+            evt.detail.issueRequest(true);
+        } else {
+            el.value = el.defaultValue;
+        }
+    });
+
+    document.body.addEventListener('htmx:responseError', function (evt) {
+        var el = evt.detail.elt;
+        if (!el || !el.closest || !el.closest('.transcriptsEditable')) return;
+        window.alert(evt.detail.xhr.responseText || 'The change could not be saved.');
+        if (el.dataset && el.dataset.catalogConfirm) {
+            el.value = el.defaultValue;
+        }
+    });
+})();
+</script>
+HTML;
 }
 
 function formatTranscriptsProgramLabel(array $program): string

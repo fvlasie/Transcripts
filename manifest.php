@@ -5,7 +5,7 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.4';
+$version     = '1.0.5';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
 $category    = 'Assess';
@@ -26,13 +26,14 @@ $moduleTables = [
         KEY `gibbonPersonID` (`gibbonPersonID`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 
-    "CREATE TABLE IF NOT EXISTS `gibbonTranscriptsCourseProgram` (
-        `gibbonTranscriptsCourseProgramID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-        `courseCode` VARCHAR(60) NOT NULL,
-        `programType` ENUM('MTS', 'BTh', 'Certificate', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree') NOT NULL,
-        PRIMARY KEY (`gibbonTranscriptsCourseProgramID`),
-        UNIQUE KEY `courseProgram` (`courseCode`, `programType`),
-        KEY `programType` (`programType`)
+    "CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (
+        `gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+        `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL,
+        `ecclesiasticalName` VARCHAR(50) NOT NULL,
+        `secularAlias` VARCHAR(50) NOT NULL,
+        `notes` VARCHAR(255) DEFAULT NULL,
+        PRIMARY KEY (`gibbonTermAliasID`),
+        UNIQUE KEY `gibbonSchoolYearTermID` (`gibbonSchoolYearTermID`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 ];
 
@@ -47,7 +48,7 @@ $actionRows[] = [
     'precedence'                => '3',
     'category'                  => 'Transcripts',
     'description'               => 'View and export transcripts for any student.',
-    'URLList'                   => 'transcripts_view.php, transcript_print.php, transcripts_edit.php, transcripts_editProcess.php',
+    'URLList'                   => 'transcripts_view.php, transcript_print.php, transcripts_gradeAjax.php, transcripts_cleanup.php',
     'entryURL'                  => 'transcripts_view.php',
     'defaultPermissionAdmin'    => 'Y',
     'defaultPermissionTeacher'  => 'N',
@@ -121,24 +122,6 @@ $actionRows[] = [
     'description'               => 'Filter and sort student records across term, program, mode of instruction, gender, level, and grade ranges.',
     'URLList'                   => 'query_engine.php',
     'entryURL'                  => 'query_engine.php',
-    'defaultPermissionAdmin'    => 'Y',
-    'defaultPermissionTeacher'  => 'N',
-    'defaultPermissionStudent'  => 'N',
-    'defaultPermissionParent'   => 'N',
-    'defaultPermissionSupport'  => 'N',
-    'categoryPermissionStaff'   => 'Y',
-    'categoryPermissionStudent' => 'N',
-    'categoryPermissionParent'  => 'N',
-    'categoryPermissionOther'   => 'N',
-];
-
-$actionRows[] = [
-    'name'                      => 'Manage Course Programs',
-    'precedence'                => '5',
-    'category'                  => 'Registrar Admin',
-    'description'               => 'Assign courses to programs so transcripts include the correct grades.',
-    'URLList'                   => 'course_program.php, course_program_add.php, course_program_edit.php, course_program_editProcess.php',
-    'entryURL'                  => 'course_program.php',
     'defaultPermissionAdmin'    => 'Y',
     'defaultPermissionTeacher'  => 'N',
     'defaultPermissionStudent'  => 'N',

@@ -3,11 +3,9 @@
 use Gibbon\Forms\Form;
 use Gibbon\Tables\DataTable;
 use Gibbon\Domain\DataSet;
-use Gibbon\Forms\DatabaseFormFactory;
 use Gibbon\Services\Format;
 use Gibbon\Module\Transcripts\Domain\TranscriptGateway;
 use Gibbon\Module\Transcripts\Domain\StudentProgramGateway;
-use Gibbon\Module\Transcripts\Domain\CourseProgramGateway;
 use Gibbon\Module\Transcripts\Services\TranscriptService;
 
 require_once __DIR__.'/moduleFunctions.php';
@@ -25,16 +23,14 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
 
         $page->return->addReturns([
             'error2' => __('The official transcript PDF could not be generated. Upload page backgrounds in Manage Transcript Template.'),
-            'error3' => __('The academic record could not be saved.'),
-            'success1' => __('The academic record was updated successfully.'),
-            'success2' => __('The academic record was added successfully.'),
         ]);
 
         $transcriptGateway = $container->get(TranscriptGateway::class);
         $programGateway = $container->get(StudentProgramGateway::class);
-        $transcriptService = new TranscriptService($transcriptGateway, $programGateway, $container->get(CourseProgramGateway::class));
+        $transcriptService = new TranscriptService($transcriptGateway, $programGateway);
         $settingGateway = $container->get(\Gibbon\Domain\System\SettingGateway::class);
         $isOfficial = canGenerateOfficialTranscript($guid, $connection2, $settingGateway);
+        $canEdit = $highestAction === 'Generate Transcripts_all';
 
         $gibbonSchoolYearID = (int)$session->get('gibbonSchoolYearID');
         $gibbonPersonIDViewer = (int)$session->get('gibbonPersonID');
@@ -48,18 +44,19 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
             echo '</h2>';
 
             $form = Form::create('studentSelect', $session->get('absoluteURL').'/index.php', 'get');
-            $form->setFactory(DatabaseFormFactory::create($pdo));
             $form->setClass('noIntBorder w-full');
             $form->addHiddenValue('q', '/modules/'.$session->get('module').'/transcripts_view.php');
 
             $row = $form->addRow();
-                $row->addLabel('gibbonPersonID', __('Student'));
-                $row->addSelectStudent('gibbonPersonID', $gibbonSchoolYearID)->required()->placeholder()->selected($gibbonPersonID);
+                $row->addLabel('gibbonPersonID', __('Student'))->description(__('Includes students from every year, alumni and leavers.'));
+                $row->addSelect('gibbonPersonID')->fromArray(getTranscriptStudentOptions($pdo))->required()->placeholder()->selected($gibbonPersonID);
 
             $row = $form->addRow();
-                $row->addSearchSubmit($session, __('Clear'));
+                $row->addSubmit(__('View Transcript'));
 
             echo $form->getOutput();
+
+            echo '<div class="linkTop"><a href="'.$session->get('absoluteURL').'/index.php?q=/modules/'.$session->get('module').'/transcripts_cleanup.php">'.__('Grade Data Cleanup Report').'</a></div>';
         } elseif ($highestAction === 'Generate Transcripts_myStudents') {
             $studentOptions = getTeacherStudentOptions($pdo, $gibbonSchoolYearID, $gibbonPersonIDViewer);
             $gibbonPersonID = $_GET['gibbonPersonID'] ?? '';
@@ -82,7 +79,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                     $row->addSelect('gibbonPersonID')->fromArray($studentOptions)->required()->placeholder()->selected($gibbonPersonID);
 
                 $row = $form->addRow();
-                    $row->addSearchSubmit($session, __('Clear'));
+                    $row->addSubmit(__('View Transcript'));
 
                 echo $form->getOutput();
             }
@@ -90,12 +87,16 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
             $gibbonPersonID = (string) $gibbonPersonIDViewer;
         }
 
+        $denialReason = !empty($gibbonPersonID)
+            ? getTranscriptAccessDenialReason($pdo, $highestAction, $gibbonPersonIDViewer, (int)$gibbonPersonID, $gibbonSchoolYearID)
+            : null;
+
         if (empty($gibbonPersonID)) {
             if ($highestAction !== 'Generate Transcripts_myStudents' || !empty($studentOptions ?? [])) {
-                $page->addMessage(__('Select a student to view his transcript.'));
+                $page->addMessage(__('Select a student to view their transcript.'));
             }
-        } elseif (!canViewStudentTranscript($pdo, $highestAction, $gibbonPersonIDViewer, (int)$gibbonPersonID, $gibbonSchoolYearID)) {
-            $page->addError(__('The selected record does not exist, or you do not have access to it.'));
+        } elseif ($denialReason !== null) {
+            $page->addError($denialReason);
         } else {
             $programs = $programGateway->getAllProgramsByPerson((int)$gibbonPersonID);
             $gibbonStudentProgramHistoryID = (int)($_GET['gibbonStudentProgramHistoryID'] ?? 0);
@@ -104,7 +105,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
 
             if (count($programs) > 1) {
                 echo '<h2>';
-                echo __('Choose Program');
+                echo __('Transcript Header');
                 echo '</h2>';
 
                 $programForm = Form::create('programSelect', $session->get('absoluteURL').'/index.php', 'get');
@@ -113,14 +114,14 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                 $programForm->addHiddenValue('gibbonPersonID', $gibbonPersonID);
 
                 $row = $programForm->addRow();
-                    $row->addLabel('gibbonStudentProgramHistoryID', __('Program'));
+                    $row->addLabel('gibbonStudentProgramHistoryID', __('Program'))->description(__('Sets the program shown in the transcript header. Every graded course is listed regardless of program.'));
                     $row->addSelect('gibbonStudentProgramHistoryID')
                         ->fromArray(getTranscriptsProgramOptions($programs))
                         ->required()
                         ->selected($gibbonStudentProgramHistoryID);
 
                 $row = $programForm->addRow();
-                    $row->addSearchSubmit($session, __('Clear'), ['gibbonPersonID']);
+                    $row->addSubmit(__('Update Header'));
 
                 echo $programForm->getOutput();
             }
@@ -132,66 +133,136 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                 $printUrl .= '&gibbonStudentProgramHistoryID='.$gibbonStudentProgramHistoryID;
             }
 
-            echo '<div class="linkTop">';
-            if (!empty($selectedProgram)) {
-                echo '<strong>'.__('Program').':</strong> '.htmlspecialchars(formatTranscriptsProgramLabel($selectedProgram)).' | ';
+            echo renderTranscriptSummary($transcriptData, $selectedProgram, $printUrl, $isOfficial);
+
+            $editContext = [
+                'ajaxURL' => $session->get('absoluteURL').'/modules/'.$session->get('module').'/transcripts_gradeAjax.php'
+                    .($gibbonStudentProgramHistoryID > 0 ? '?gibbonStudentProgramHistoryID='.$gibbonStudentProgramHistoryID : ''),
+                'csrftoken' => $session->get('csrftoken'),
+                'gibbonPersonID' => (int)$gibbonPersonID,
+            ];
+            $scaleCache = [];
+
+            if ($canEdit) {
+                echo renderTranscriptInlineEditScript();
+                echo '<div class="transcriptsEditable">';
             }
-            echo '<strong>'.__('Cumulative GPA').':</strong> '.renderGpaBadge($transcriptData['cumulativeGPA']);
-            echo ' | <strong>'.__('Total Credits Earned').':</strong> '.$transcriptData['totalCredits'];
-            echo ' | <a href="'.$printUrl.'" target="_blank">'.($isOfficial ? __('Official PDF') : __('Unofficial PDF')).'</a>';
-            echo '</div>';
 
             $records = $transcriptData['records'] ?? [];
             $table = DataTable::create('academicRecord');
             $table->setTitle(__('Academic Record'));
+            if ($canEdit) {
+                $table->setDescription(__('Grades are saved the same way as Write Reports. External codes and credits are shared with Courses and Classes and apply to every year of the course.'));
+            }
 
             $table->addColumn('schoolYear', __('Year'));
             $table->addColumn('term', __('Term'));
             $table->addColumn('courseCode', __('Course Code'));
             $table->addColumn('externalCourseCode', __('External Course Code'))
-                ->format(function ($row) {
-                    return $row['externalCourseCode'] ?? '';
+                ->format(function ($row) use ($canEdit, $editContext) {
+                    return $canEdit
+                        ? renderTranscriptCatalogInput($row, 'externalCourseCode', $editContext)
+                        : htmlspecialchars($row['externalCourseCode'] ?? '');
                 });
             $table->addColumn('courseName', __('Course Name'));
             $table->addColumn('courseLevel', __('Level'));
             $table->addColumn('modeOfInstruction', __('Mode'));
-            $table->addColumn('credits', __('Credits'))->format(Format::using('number', ['credits', 2]))->addClass('text-right');
-            $table->addColumn('letterGrade', __('Grade'))
-                ->format(function ($row) {
-                    return $row['letterGrade'] ?? '-';
+            $table->addColumn('credits', __('Credits'))
+                ->format(function ($row) use ($canEdit, $editContext) {
+                    return $canEdit
+                        ? renderTranscriptCatalogInput($row, 'credits', $editContext)
+                        : number_format((float)$row['credits'], 2);
                 })
                 ->addClass('text-right');
+            $table->addColumn('letterGrade', __('Grade'))
+                ->format(function ($row) use ($canEdit, $editContext, $transcriptGateway, &$scaleCache) {
+                    if (!$canEdit) {
+                        return htmlspecialchars($row['letterGrade'] ?? '-');
+                    }
+
+                    $choices = buildTranscriptGradeChoices($transcriptGateway, [[
+                        'gibbonReportingCriteriaID' => $row['gibbonReportingCriteriaID'],
+                        'gibbonScaleID' => $row['gibbonScaleID'],
+                        'termName' => $row['termName'],
+                        'cycleName' => $row['cycleName'],
+                    ]], $scaleCache);
+
+                    $html = renderTranscriptGradeCell($row, $choices, $editContext);
+                    if (!empty($row['hiddenDuplicates'])) {
+                        $html .= '<div class="text-xxs text-orange-700">'.__('Other grades exist for this term; see the cleanup report.').'</div>';
+                    }
+
+                    return $html;
+                });
             $table->addColumn('gpaPoints', __('GPA Points'))
                 ->format(function ($row) {
                     return $row['gpaPoints'] !== null ? number_format($row['gpaPoints'], 1) : '-';
                 })
                 ->addClass('text-right');
 
-            if ($highestAction === 'Generate Transcripts_all') {
-                $actionColumn = $table->addActionColumn()
-                    ->addParam('gibbonPersonID', $gibbonPersonID)
-                    ->addParam('gibbonCourseClassID')
-                    ->addParam('gibbonSchoolYearTermID')
-                    ->addParam('gibbonReportingValueID')
-                    ->addParam('gibbonReportingCycleID');
-
-                if ($gibbonStudentProgramHistoryID > 0) {
-                    $actionColumn->addParam('gibbonStudentProgramHistoryID', $gibbonStudentProgramHistoryID);
-                }
-
-                $actionColumn->format(function ($row, $actions) {
-                        $actions->addAction('edit', __('Edit'))
-                            ->setURL('/fullscreen.php')
-                            ->addParam('q', '/modules/Transcripts/transcripts_edit.php')
-                            ->directLink(true)
-                            ->modalWindow();
-                    });
-            }
-
             if (!empty($records)) {
                 echo $table->render(new DataSet($records));
             } else {
                 echo $page->getBlankSlate();
+            }
+
+            if ($canEdit) {
+                $ungraded = $transcriptGateway->getStudentUngradedClasses((int)$gibbonPersonID);
+
+                if (!empty($ungraded)) {
+                    $ungradedTable = DataTable::create('ungradedClasses');
+                    $ungradedTable->setTitle(__('Ungraded Enrolments'));
+                    $ungradedTable->setDescription(__('Classes this student is enrolled in without a grade. They are not on the transcript until a grade is entered.'));
+
+                    $ungradedTable->addColumn('schoolYearName', __('Year'));
+                    $ungradedTable->addColumn('courseCode', __('Course Code'))
+                        ->format(function ($row) {
+                            return htmlspecialchars($row['courseCode'].'.'.$row['className']);
+                        });
+                    $ungradedTable->addColumn('courseName', __('Course Name'));
+                    $ungradedTable->addColumn('grade', __('Grade'))
+                        ->format(function ($row) use ($editContext, $transcriptGateway, &$scaleCache) {
+                            $criteriaRows = $transcriptGateway->getGradeCriteriaForClass((int)$row['gibbonCourseClassID']);
+
+                            if (!empty($criteriaRows)) {
+                                $choices = buildTranscriptGradeChoices($transcriptGateway, $criteriaRows, $scaleCache);
+
+                                return renderTranscriptGradeCell($row, $choices, $editContext, true);
+                            }
+
+                            $terms = $transcriptGateway->getTermsBySchoolYear((int)$row['gibbonSchoolYearID']);
+                            if (empty($terms)) {
+                                return '<span class="text-gray-600">'.__('This school year has no terms, so grading cannot be set up.').'</span>';
+                            }
+
+                            $plannerTermID = $transcriptGateway->getPlannerTermIDForClass((int)$row['gibbonCourseClassID']);
+                            $selectID = 'setupTerm'.(int)$row['gibbonCourseClassID'];
+                            $vals = [
+                                'action' => 'setupTerm',
+                                'csrftoken' => $editContext['csrftoken'],
+                                'gibbonPersonID' => $editContext['gibbonPersonID'],
+                            ];
+
+                            $html = '<div class="transcriptGradeCell flex items-center gap-2">';
+                            $html .= '<select id="'.$selectID.'" name="gibbonSchoolYearTermID" aria-label="'.__('Term').'">';
+                            foreach ($terms as $termID => $termName) {
+                                $html .= '<option value="'.(int)$termID.'"'.((int)$termID === $plannerTermID ? ' selected' : '').'>'.htmlspecialchars($termName).'</option>';
+                            }
+                            $html .= '</select>';
+                            $html .= '<button type="button" class="button"'
+                                .' hx-post="'.htmlspecialchars($editContext['ajaxURL']).'" hx-include="#'.$selectID.'" hx-target="closest .transcriptGradeCell" hx-swap="outerHTML"'
+                                .' hx-vals="'.htmlspecialchars(json_encode($vals), ENT_QUOTES).'"'
+                                .' hx-confirm="'.htmlspecialchars(__('This creates a reporting cycle and a Grade criterion for the selected term in the Reports module, so grades for that term can be entered here and in Write Reports. Continue?')).'">'
+                                .__('Set up grading for this term').'</button>';
+                            $html .= '</div>';
+
+                            return $html;
+                        });
+
+                    echo $ungradedTable->render(new DataSet($ungraded));
+                }
+
+                echo '</div>';
             }
         }
     }
