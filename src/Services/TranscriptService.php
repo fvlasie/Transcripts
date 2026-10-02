@@ -36,8 +36,7 @@ class TranscriptService
             $record = new TranscriptRecord($data);
             $records[] = [$record, $data];
 
-            $letter = strtoupper(trim((string)$record->getLetterGrade()));
-            if ($record->getCredits() > 0 && $letter !== '' && $letter !== 'F') {
+            if ($record->isCreditEarned()) {
                 $totalCredits += $record->getCredits();
             }
 
@@ -88,6 +87,7 @@ class TranscriptService
                     'gibbonSchoolYearID' => $r->getSchoolYearID(),
                     'gibbonScaleGradeID' => $r->getScaleGradeID(),
                     'gibbonScaleID' => (int)($data['gibbonScaleID'] ?? 0),
+                    'isPassFail' => $r->isPassFail(),
                     'cycleName' => $data['cycleName'] ?? '',
                     'timestampModified' => $data['timestampModified'] ?? null,
                     'modifiedTitle' => $data['modifiedTitle'] ?? '',

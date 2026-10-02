@@ -179,6 +179,11 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                     if (!$canEdit) {
                         return htmlspecialchars($row['letterGrade'] ?? '-');
                     }
+                    if (!empty($row['isPassFail'])) {
+                        return htmlspecialchars($row['letterGrade'] ?? '-')
+                            .'<div class="text-xxs text-gray-600 mt-1">'.__('Pass/Fail, not in GPA. Edit in Write Reports.').'</div>'
+                            .renderTranscriptLastChanged($row);
+                    }
 
                     $choices = buildTranscriptGradeChoices($transcriptGateway, [[
                         'gibbonReportingCriteriaID' => $row['gibbonReportingCriteriaID'],

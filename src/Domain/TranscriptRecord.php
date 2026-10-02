@@ -25,6 +25,7 @@ class TranscriptRecord
     private int $schoolYearID;
     private int $scaleGradeID;
     private int $courseID;
+    private bool $isPassFail;
 
     public function __construct(array $data)
     {
@@ -40,8 +41,13 @@ class TranscriptRecord
         $this->credits = (float)($data['credits'] ?? 0.0);
         $letterGrade = trim((string)($data['letterGrade'] ?? ''));
         $this->letterGrade = $letterGrade !== '' ? $letterGrade : null;
+        $this->isPassFail = !empty($data['isPassFail']);
         $this->numericGrade = is_numeric($data['numericGrade'] ?? null) ? (float)$data['numericGrade'] : null;
-        $this->gpaPoints = is_numeric($data['gpaPoints'] ?? null) ? (float)$data['gpaPoints'] : $this->calculateGpaPoints();
+        if ($this->isPassFail) {
+            $this->gpaPoints = null;
+        } else {
+            $this->gpaPoints = is_numeric($data['gpaPoints'] ?? null) ? (float)$data['gpaPoints'] : $this->calculateGpaPoints();
+        }
         $this->courseClassID = (int)($data['gibbonCourseClassID'] ?? 0);
         $this->reportingValueID = (int)($data['gibbonReportingValueID'] ?? 0);
         $this->reportingCriteriaID = (int)($data['gibbonReportingCriteriaID'] ?? 0);
@@ -147,4 +153,18 @@ class TranscriptRecord
     public function getSchoolYearID(): int { return $this->schoolYearID; }
     public function getScaleGradeID(): int { return $this->scaleGradeID; }
     public function getCourseID(): int { return $this->courseID; }
+    public function isPassFail(): bool { return $this->isPassFail; }
+
+    /**
+     * Whether the course's credits count as earned: any letter grade except F, or a Pass.
+     */
+    public function isCreditEarned(): bool
+    {
+        $letter = strtoupper(trim((string)$this->letterGrade));
+        if ($letter === '' || $this->credits <= 0) {
+            return false;
+        }
+
+        return $this->isPassFail ? strpos($letter, 'P') === 0 : $letter !== 'F';
+    }
 }

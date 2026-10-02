@@ -13,7 +13,13 @@ class TranscriptGateway extends QueryableGateway
     private static $primaryKey = 'gibbonTermAliasID';
 
     /**
-     * Every Grade Scale value ever entered for the student, regardless of enrolment or status.
+     * Text criteria only count as Pass/Fail grades when the value is one of these (compared upper-cased),
+     * so free-text comments never reach the transcript.
+     */
+    private const PASS_FAIL_SQL = "('P', 'PASS', 'PASSED', 'F', 'FAIL', 'FAILED')";
+
+    /**
+     * Every Grade Scale value, and every Pass/Fail Text value, ever entered for the student, regardless of enrolment or status.
      * Rows are ordered so that, for a given class and term, the latest cycle (by Reports sequence) comes last.
      */
     public function getStudentGradeRecords(int $gibbonPersonID): array
@@ -81,11 +87,15 @@ class TranscriptGateway extends QueryableGateway
                 gibbonCourse.courseLevel,
                 gibbonCourse.modeOfInstruction,
                 COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID,
-                COALESCE(NULLIF(TRIM(gibbonScaleGrade.value), ''), NULLIF(TRIM(gibbonScaleGrade.descriptor), ''), gibbonReportingValue.value) AS letterGrade
+                COALESCE(NULLIF(TRIM(gibbonScaleGrade.value), ''), NULLIF(TRIM(gibbonScaleGrade.descriptor), ''), gibbonReportingValue.value) AS letterGrade,
+                IF(gibbonReportingCriteriaType.valueType = 'Text', 1, 0) AS isPassFail
             FROM gibbonReportingValue
             INNER JOIN gibbonReportingCriteria ON gibbonReportingCriteria.gibbonReportingCriteriaID = gibbonReportingValue.gibbonReportingCriteriaID
             INNER JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
-                AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
+                AND (
+                    gibbonReportingCriteriaType.valueType = 'Grade Scale'
+                    OR (gibbonReportingCriteriaType.valueType = 'Text' AND UPPER(TRIM(gibbonReportingValue.value)) IN ".self::PASS_FAIL_SQL.")
+                )
             INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
             INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
             INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
@@ -148,10 +158,13 @@ class TranscriptGateway extends QueryableGateway
                 SELECT 1
                 FROM gibbonReportingValue AS rv
                 JOIN gibbonReportingCriteria AS crit ON crit.gibbonReportingCriteriaID = rv.gibbonReportingCriteriaID
-                JOIN gibbonReportingCriteriaType AS ct ON ct.gibbonReportingCriteriaTypeID = crit.gibbonReportingCriteriaTypeID AND ct.valueType = 'Grade Scale'
+                JOIN gibbonReportingCriteriaType AS ct ON ct.gibbonReportingCriteriaTypeID = crit.gibbonReportingCriteriaTypeID
                 WHERE rv.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID
                 AND rv.gibbonPersonIDStudent = gibbonCourseClassPerson.gibbonPersonID
-                AND (rv.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(rv.value, '')) <> '')
+                AND (
+                    (ct.valueType = 'Grade Scale' AND (rv.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(rv.value, '')) <> ''))
+                    OR (ct.valueType = 'Text' AND UPPER(TRIM(rv.value)) IN ".self::PASS_FAIL_SQL.")
+                )
             )
             ORDER BY gibbonSchoolYear.sequenceNumber, gibbonCourse.nameShort, gibbonCourseClass.nameShort";
 
