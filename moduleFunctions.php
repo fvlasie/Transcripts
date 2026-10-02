@@ -80,7 +80,6 @@ function upsertTranscriptsSetting($pdo, string $name, string $value): void
 function checkAndMigrateTranscriptsSchema($pdo)
 {
     $columns = [
-        'modeOfInstruction' => "ALTER TABLE `gibbonCourse` ADD COLUMN `modeOfInstruction` ENUM('In-person', 'Remote') NOT NULL DEFAULT 'In-person'",
         'courseLevel' => "ALTER TABLE `gibbonCourse` ADD COLUMN `courseLevel` ENUM('BTh', 'MTS', 'Certificate', 'Non-Degree') NOT NULL DEFAULT 'BTh'",
     ];
 
@@ -120,6 +119,20 @@ function checkAndMigrateTranscriptsSchema($pdo)
     }
 
     try {
+        $pdo->statement("CREATE TABLE IF NOT EXISTS `gibbonStudentInstructionMode` (
+            `gibbonStudentInstructionModeID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `gibbonPersonID` INT(10) UNSIGNED NOT NULL,
+            `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL,
+            `modeOfInstruction` ENUM('In-person', 'Remote') NOT NULL DEFAULT 'In-person',
+            PRIMARY KEY (`gibbonStudentInstructionModeID`),
+            UNIQUE KEY `personTerm` (`gibbonPersonID`, `gibbonSchoolYearTermID`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        migrateCourseModeOntoStudents($pdo);
+    } catch (Exception $e) {
+        // Table may be unavailable during install.
+    }
+
+    try {
         $pdo->statement("CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (
             `gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
             `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL,
@@ -131,6 +144,48 @@ function checkAndMigrateTranscriptsSchema($pdo)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Exception $e) {
         // Table may already exist or be unavailable during install.
+    }
+}
+
+/**
+ * Copies a course mode onto every term of that year when every course the student took agrees, then drops the course column.
+ * Mixed years are left unset, which means In-person.
+ */
+function migrateCourseModeOntoStudents($pdo): void
+{
+    try {
+        $column = $pdo->selectOne("SHOW COLUMNS FROM `gibbonCourse` LIKE 'modeOfInstruction'");
+    } catch (Exception $e) {
+        return;
+    }
+
+    if (empty($column)) {
+        return;
+    }
+
+    try {
+        $pdo->statement(
+            "INSERT INTO gibbonStudentInstructionMode (gibbonPersonID, gibbonSchoolYearTermID, modeOfInstruction)
+            SELECT personCourses.gibbonPersonID, term.gibbonSchoolYearTermID, personCourses.modeOfInstruction
+            FROM (
+                SELECT classPerson.gibbonPersonID, course.gibbonSchoolYearID, MIN(course.modeOfInstruction) AS modeOfInstruction
+                FROM gibbonCourseClassPerson AS classPerson
+                JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = classPerson.gibbonCourseClassID
+                JOIN gibbonCourse AS course ON course.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+                WHERE classPerson.role = 'Student'
+                GROUP BY classPerson.gibbonPersonID, course.gibbonSchoolYearID
+                HAVING COUNT(DISTINCT course.modeOfInstruction) = 1
+            ) AS personCourses
+            JOIN gibbonSchoolYearTerm AS term ON term.gibbonSchoolYearID = personCourses.gibbonSchoolYearID
+            WHERE NOT EXISTS (
+                SELECT 1 FROM gibbonStudentInstructionMode AS existing
+                WHERE existing.gibbonPersonID = personCourses.gibbonPersonID
+                AND existing.gibbonSchoolYearTermID = term.gibbonSchoolYearTermID
+            )"
+        );
+        $pdo->statement('ALTER TABLE `gibbonCourse` DROP COLUMN `modeOfInstruction`');
+    } catch (Exception $e) {
+        // Leave the course column in place if the copy fails, so the next page load can try again.
     }
 }
 

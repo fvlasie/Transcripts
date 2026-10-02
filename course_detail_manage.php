@@ -13,12 +13,12 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/course_detail_
     $page->breadcrumbs->add(__('Course Details'));
 
     $page->return->addReturns([
-        'warning1' => __('Some courses were skipped because the level, mode, or concentration was not in the list.'),
+        'warning1' => __('Some courses were skipped because the level or concentration was not in the list.'),
     ]);
 
     $gibbonSchoolYearID = (int) ($_GET['gibbonSchoolYearID'] ?? $session->get('gibbonSchoolYearID'));
 
-    echo '<p>'.__('Level, mode of instruction, and concentration are stored on the course for this school year. Concentration is the learning area.').'</p>';
+    echo '<p>'.__('Level and concentration are stored on the course for this school year. Concentration is the learning area. Mode of instruction is set for each student and term on Student Mode.').'</p>';
 
     $filterForm = Form::create('courseDetailFilter', $session->get('absoluteURL').'/index.php', 'get');
     $filterForm->setFactory(DatabaseFormFactory::create($pdo));
@@ -32,7 +32,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/course_detail_
     echo $filterForm->getOutput();
 
     $courses = $pdo->select(
-        'SELECT gibbonCourseID, nameShort, name, courseLevel, modeOfInstruction, gibbonDepartmentID
+        'SELECT gibbonCourseID, nameShort, name, courseLevel, gibbonDepartmentID
          FROM gibbonCourse
          WHERE gibbonSchoolYearID = :gibbonSchoolYearID
          ORDER BY nameShort',
@@ -57,7 +57,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/course_detail_
     $header = $table->addHeaderRow();
     $header->addContent(__('Course'));
     $header->addContent(__('Level'));
-    $header->addContent(__('Mode'));
     $header->addContent(__('Concentration'));
 
     foreach ($courses as $course) {
@@ -65,7 +64,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/course_detail_
         $tr = $table->addRow();
         $tr->addContent(htmlspecialchars($course['nameShort'].' '.$course['name']));
         $tr->addSelect('courseLevel'.$courseID)->fromArray(getTranscriptsCourseLevels())->required()->selected($course['courseLevel']);
-        $tr->addSelect('modeOfInstruction'.$courseID)->fromArray(getTranscriptsInstructionModes())->required()->selected($course['modeOfInstruction']);
         $tr->addSelect('gibbonDepartmentID'.$courseID)->fromArray($areaOptions)->placeholder()->selected($course['gibbonDepartmentID']);
     }
 

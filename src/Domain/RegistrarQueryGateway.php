@@ -16,6 +16,8 @@ class RegistrarQueryGateway extends QueryableGateway
     private static $primaryKey = 'gibbonPersonID';
     private static $searchableColumns = ['gibbonPerson.surname', 'gibbonPerson.preferredName', 'gibbonPerson.firstName', 'gibbonCourse.name', 'gibbonCourse.nameShort'];
 
+    private $schemaCache = [];
+
     public function selectLearningAreas(): array
     {
         $rows = $this->db()->select(
@@ -70,7 +72,7 @@ class RegistrarQueryGateway extends QueryableGateway
                 'gibbonStudentProgramHistory.startDate AS programStartDate',
                 'gibbonStudentProgramHistory.graduationDate',
                 'gibbonCourse.courseLevel',
-                'gibbonCourse.modeOfInstruction',
+                $this->instructionModeExpression().' AS modeOfInstruction',
                 'gibbonCourse.name AS courseName',
                 'gibbonCourse.nameShort AS courseCode',
             ])
@@ -99,7 +101,7 @@ class RegistrarQueryGateway extends QueryableGateway
             },
             'modeOfInstruction' => function ($query, $modeOfInstruction) {
                 return $query
-                    ->where('gibbonCourse.modeOfInstruction = :modeOfInstruction')
+                    ->where($this->instructionModeExpression().' = :modeOfInstruction')
                     ->bindValue('modeOfInstruction', $modeOfInstruction);
             },
             'gender' => function ($query, $gender) {
@@ -127,5 +129,64 @@ class RegistrarQueryGateway extends QueryableGateway
         }
 
         return $query;
+    }
+
+    /**
+     * The student's mode for the class's first billed term. Without a class-term map, Remote only when every term that year is Remote.
+     */
+    private function instructionModeExpression(): string
+    {
+        if (!$this->tableExists('gibbonStudentInstructionMode')) {
+            return "'In-person'";
+        }
+
+        if ($this->tableExists('gibbonTuitionClassTerm')) {
+            return "COALESCE(
+                (SELECT mode.modeOfInstruction
+                FROM gibbonStudentInstructionMode AS mode
+                WHERE mode.gibbonPersonID = gibbonPerson.gibbonPersonID
+                AND mode.gibbonSchoolYearTermID = (
+                    SELECT classTerm.gibbonSchoolYearTermID
+                    FROM gibbonTuitionClassTerm AS classTerm
+                    JOIN gibbonSchoolYearTerm AS classTermYear ON classTermYear.gibbonSchoolYearTermID = classTerm.gibbonSchoolYearTermID
+                    WHERE classTerm.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID
+                    ORDER BY classTermYear.sequenceNumber, classTermYear.firstDay
+                    LIMIT 1
+                )),
+                'In-person')";
+        }
+
+        return "CASE
+            WHEN (
+                SELECT COUNT(*) FROM gibbonSchoolYearTerm AS termYear
+                WHERE termYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+            ) > 0
+            AND (
+                SELECT COUNT(*) FROM gibbonSchoolYearTerm AS termYear
+                WHERE termYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+            ) = (
+                SELECT COUNT(*)
+                FROM gibbonStudentInstructionMode AS mode
+                JOIN gibbonSchoolYearTerm AS termYear ON termYear.gibbonSchoolYearTermID = mode.gibbonSchoolYearTermID
+                WHERE mode.gibbonPersonID = gibbonPerson.gibbonPersonID
+                AND termYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
+                AND mode.modeOfInstruction = 'Remote'
+            )
+            THEN 'Remote'
+            ELSE 'In-person'
+        END";
+    }
+
+    private function tableExists(string $table): bool
+    {
+        if (!isset($this->schemaCache[$table])) {
+            try {
+                $this->schemaCache[$table] = !empty($this->db()->selectOne('SHOW TABLES LIKE :table', ['table' => $table]));
+            } catch (\Exception $e) {
+                $this->schemaCache[$table] = false;
+            }
+        }
+
+        return $this->schemaCache[$table];
     }
 }

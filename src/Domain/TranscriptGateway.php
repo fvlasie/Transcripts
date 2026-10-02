@@ -100,7 +100,7 @@ class TranscriptGateway extends QueryableGateway
                 gibbonCoursesAndClasses.externalCourseCode,
                 COALESCE(gibbonCoursesAndClasses.credits, 3.00) AS credits,
                 gibbonCourse.courseLevel,
-                gibbonCourse.modeOfInstruction,
+                COALESCE(gibbonStudentInstructionMode.modeOfInstruction, 'In-person') AS modeOfInstruction,
                 COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID,
                 COALESCE(NULLIF(TRIM(gibbonScaleGrade.value), ''), NULLIF(TRIM(gibbonScaleGrade.descriptor), ''), gibbonReportingValue.value) AS letterGrade,
                 IF(gibbonReportingCriteriaType.valueType = 'Text', 1, 0) AS isPassFail
@@ -118,6 +118,8 @@ class TranscriptGateway extends QueryableGateway
             INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
             INNER JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingValue.gibbonReportingCycleID
             LEFT JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearTermID = {$termMatch}
+            LEFT JOIN gibbonStudentInstructionMode ON gibbonStudentInstructionMode.gibbonPersonID = gibbonReportingValue.gibbonPersonIDStudent
+                AND gibbonStudentInstructionMode.gibbonSchoolYearTermID = gibbonSchoolYearTerm.gibbonSchoolYearTermID
             LEFT JOIN gibbonTermAlias ON gibbonTermAlias.gibbonSchoolYearTermID = gibbonSchoolYearTerm.gibbonSchoolYearTermID
             LEFT JOIN gibbonScaleGrade ON gibbonScaleGrade.gibbonScaleGradeID = gibbonReportingValue.gibbonScaleGradeID
             LEFT JOIN gibbonCoursesAndClasses ON gibbonCoursesAndClasses.courseCode = gibbonCourse.nameShort

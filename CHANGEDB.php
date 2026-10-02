@@ -86,3 +86,18 @@ $sql[$count][0] = '1.0.13';
 $sql[$count][1] = "
 UPDATE gibbonAction SET URLList='program_manage.php, program_manageProcess.php, program_manage_add.php, program_manage_edit.php, program_manage_editProcess.php, program_type_add.php, program_type_addProcess.php, program_type_delete.php, program_type_deleteProcess.php' WHERE name='Program Management' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
 ";
+
+//v1.0.14
+++$count;
+$sql[$count][0] = '1.0.14';
+$sql[$count][1] = "
+CREATE TABLE IF NOT EXISTS `gibbonStudentInstructionMode` (`gibbonStudentInstructionModeID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT, `gibbonPersonID` INT(10) UNSIGNED NOT NULL, `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL, `modeOfInstruction` ENUM('In-person', 'Remote') NOT NULL DEFAULT 'In-person', PRIMARY KEY (`gibbonStudentInstructionModeID`), UNIQUE KEY `personTerm` (`gibbonPersonID`, `gibbonSchoolYearTermID`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;end
+INSERT INTO gibbonAction (gibbonModuleID, name, precedence, category, description, URLList, entryURL, entrySidebar, menuShow, defaultPermissionAdmin, defaultPermissionTeacher, defaultPermissionStudent, defaultPermissionParent, defaultPermissionSupport, categoryPermissionStaff, categoryPermissionStudent, categoryPermissionParent, categoryPermissionOther)
+VALUES ((SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts'), 'Student Mode', 6, 'Registrar', 'Set each student''s mode of instruction for each term.', 'student_mode_manage.php, student_mode_manageProcess.php', 'student_mode_manage.php', 'Y', 'Y', 'Y', 'N', 'N', 'N', 'N', 'Y', 'N', 'N', 'N');end
+INSERT INTO gibbonPermission (gibbonRoleID, gibbonActionID)
+SELECT gibbonPermission.gibbonRoleID, studentMode.gibbonActionID
+FROM gibbonPermission
+JOIN gibbonAction courseDetails ON courseDetails.gibbonActionID=gibbonPermission.gibbonActionID AND courseDetails.name='Course Details'
+JOIN gibbonAction studentMode ON studentMode.name='Student Mode' AND studentMode.gibbonModuleID=courseDetails.gibbonModuleID;end
+UPDATE gibbonAction SET description='Set course level and concentration for a school year.' WHERE name='Course Details' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+";

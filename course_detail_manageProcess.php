@@ -26,26 +26,23 @@ $areas = $pdo->select(
 )->fetchAll();
 $areaIDs = array_map('intval', array_column($areas, 'gibbonDepartmentID'));
 $levels = getTranscriptsCourseLevels();
-$modes = getTranscriptsInstructionModes();
 $skipped = false;
 
 foreach ($courses as $course) {
     $courseID = (int) $course['gibbonCourseID'];
     $level = (string) ($_POST['courseLevel'.$courseID] ?? '');
-    $mode = (string) ($_POST['modeOfInstruction'.$courseID] ?? '');
     $departmentID = (int) ($_POST['gibbonDepartmentID'.$courseID] ?? 0);
-    if (!isset($levels[$level]) || !isset($modes[$mode]) || ($departmentID > 0 && !in_array($departmentID, $areaIDs, true))) {
+    if (!isset($levels[$level]) || ($departmentID > 0 && !in_array($departmentID, $areaIDs, true))) {
         $skipped = true;
         continue;
     }
 
     $pdo->statement(
         'UPDATE gibbonCourse
-         SET courseLevel = :courseLevel, modeOfInstruction = :modeOfInstruction, gibbonDepartmentID = :gibbonDepartmentID
+         SET courseLevel = :courseLevel, gibbonDepartmentID = :gibbonDepartmentID
          WHERE gibbonCourseID = :gibbonCourseID AND gibbonSchoolYearID = :gibbonSchoolYearID',
         [
             'courseLevel' => $level,
-            'modeOfInstruction' => $mode,
             'gibbonDepartmentID' => $departmentID > 0 ? $departmentID : null,
             'gibbonCourseID' => $courseID,
             'gibbonSchoolYearID' => $gibbonSchoolYearID,

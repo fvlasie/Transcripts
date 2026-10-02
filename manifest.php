@@ -5,7 +5,7 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.13';
+$version     = '1.0.14';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
 $category    = 'Assess';
@@ -33,6 +33,15 @@ $moduleTables = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 
     "INSERT IGNORE INTO `gibbonTranscriptProgram` (`name`, `sequenceNumber`) VALUES ('MTS', 1), ('BTh', 2), ('Certificate', 3), ('Iconography', 4), ('Iconology', 5), ('Gap-Year', 6), ('Non-Degree', 7);",
+
+    "CREATE TABLE IF NOT EXISTS `gibbonStudentInstructionMode` (
+        `gibbonStudentInstructionModeID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+        `gibbonPersonID` INT(10) UNSIGNED NOT NULL,
+        `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL,
+        `modeOfInstruction` ENUM('In-person', 'Remote') NOT NULL DEFAULT 'In-person',
+        PRIMARY KEY (`gibbonStudentInstructionModeID`),
+        UNIQUE KEY `personTerm` (`gibbonPersonID`, `gibbonSchoolYearTermID`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 
     "CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (
         `gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -145,9 +154,27 @@ $actionRows[] = [
     'name'                      => 'Course Details',
     'precedence'                => '5',
     'category'                  => 'Registrar',
-    'description'               => 'Set course level, mode of instruction, and concentration for a school year.',
+    'description'               => 'Set course level and concentration for a school year.',
     'URLList'                   => 'course_detail_manage.php, course_detail_manageProcess.php',
     'entryURL'                  => 'course_detail_manage.php',
+    'defaultPermissionAdmin'    => 'Y',
+    'defaultPermissionTeacher'  => 'N',
+    'defaultPermissionStudent'  => 'N',
+    'defaultPermissionParent'   => 'N',
+    'defaultPermissionSupport'  => 'N',
+    'categoryPermissionStaff'   => 'Y',
+    'categoryPermissionStudent' => 'N',
+    'categoryPermissionParent'  => 'N',
+    'categoryPermissionOther'   => 'N',
+];
+
+$actionRows[] = [
+    'name'                      => 'Student Mode',
+    'precedence'                => '6',
+    'category'                  => 'Registrar',
+    'description'               => 'Set each student\'s mode of instruction for each term.',
+    'URLList'                   => 'student_mode_manage.php, student_mode_manageProcess.php',
+    'entryURL'                  => 'student_mode_manage.php',
     'defaultPermissionAdmin'    => 'Y',
     'defaultPermissionTeacher'  => 'N',
     'defaultPermissionStudent'  => 'N',
