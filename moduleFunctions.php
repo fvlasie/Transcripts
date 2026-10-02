@@ -454,7 +454,7 @@ function renderTranscriptGradeCell(array $row, array $choices, array $context, b
 }
 
 /**
- * In-place input for a course catalog field (external code or credits), shared with Courses and Classes.
+ * In-place credits input; credits belong to the Courses and Classes catalog.
  */
 function renderTranscriptCatalogInput(array $row, string $field, array $context): string
 {
@@ -472,13 +472,9 @@ function renderTranscriptCatalogInput(array $row, string $field, array $context)
         .' hx-vals="'.htmlspecialchars(json_encode($vals), ENT_QUOTES).'"'
         .' data-catalog-confirm="'.htmlspecialchars($warning).'" data-course-code="'.htmlspecialchars($courseCode).'"';
 
-    if ($field === 'credits') {
-        $value = number_format((float)($row['credits'] ?? 0), 2, '.', '');
+    $value = number_format((float)($row['credits'] ?? 0), 2, '.', '');
 
-        return '<input type="number" step="0.01" min="0" max="99.99" class="w-20 text-right" aria-label="'.__('Credits').'" value="'.$value.'"'.$common.'>';
-    }
-
-    return '<input type="text" maxlength="255" class="w-28" aria-label="'.__('External Course Code').'" value="'.htmlspecialchars((string)($row['externalCourseCode'] ?? '')).'"'.$common.'>';
+    return '<input type="number" step="0.01" min="0" max="99.99" class="w-20 text-right" aria-label="'.__('Credits').'" value="'.$value.'"'.$common.'>';
 }
 
 function renderTranscriptSummary(array $transcriptData, ?array $selectedProgram, string $printUrl, bool $isOfficial, bool $outOfBand = false): string

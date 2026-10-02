@@ -127,7 +127,7 @@ if ($action === 'saveGrade') {
 
 if ($action === 'saveCatalog') {
     $field = $_POST['field'] ?? '';
-    if (!in_array($field, ['externalCourseCode', 'credits'], true)) {
+    if ($field !== 'credits') {
         $fail(__('Unknown field.'));
     }
 

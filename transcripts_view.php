@@ -152,17 +152,15 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
             $table = DataTable::create('academicRecord');
             $table->setTitle(__('Academic Record'));
             if ($canEdit) {
-                $table->setDescription(__('Grades are saved the same way as Write Reports. External codes and credits are shared with Courses and Classes and apply to every year of the course.'));
+                $table->setDescription(__('Grades are saved the same way as Write Reports. Credits are shared with Courses and Classes and apply to every year of the course; external codes are edited in Courses and Classes > Manage All Courses.'));
             }
 
             $table->addColumn('schoolYear', __('Year'));
             $table->addColumn('term', __('Term'));
             $table->addColumn('courseCode', __('Course Code'));
             $table->addColumn('externalCourseCode', __('External Course Code'))
-                ->format(function ($row) use ($canEdit, $editContext) {
-                    return $canEdit
-                        ? renderTranscriptCatalogInput($row, 'externalCourseCode', $editContext)
-                        : htmlspecialchars($row['externalCourseCode'] ?? '');
+                ->format(function ($row) {
+                    return htmlspecialchars($row['externalCourseCode'] ?? '');
                 });
             $table->addColumn('courseName', __('Course Name'));
             $table->addColumn('courseLevel', __('Level'));
