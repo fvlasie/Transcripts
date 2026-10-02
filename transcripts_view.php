@@ -93,7 +93,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
 
         if (empty($gibbonPersonID)) {
             if ($highestAction !== 'Transcripts_myStudents' || !empty($studentOptions ?? [])) {
-                $page->addMessage(__('Select a student to view their transcript.'));
+                $page->addMessage(__('Select a student to view the transcript.'));
             }
         } elseif ($denialReason !== null) {
             $page->addError($denialReason);
