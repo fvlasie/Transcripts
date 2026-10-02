@@ -2,6 +2,8 @@
 
 use Gibbon\Forms\Form;
 use Gibbon\Forms\DatabaseFormFactory;
+use Gibbon\Services\Format;
+use Gibbon\Module\Transcripts\Domain\StudentProgramGateway;
 
 require_once __DIR__.'/moduleFunctions.php';
 checkAndMigrateTranscriptsSchema($pdo);
@@ -10,6 +12,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
     $page->addError(__('You do not have access to this action.'));
 } else {
     $filterGibbonPersonID = $_GET['gibbonPersonID'] ?? '';
+    $suggested = $container->get(StudentProgramGateway::class)->suggestProgramDates((int)$filterGibbonPersonID);
     $backQuery = 'program_manage.php';
     if (!empty($filterGibbonPersonID)) {
         $backQuery .= '&gibbonPersonID='.$filterGibbonPersonID;
@@ -33,16 +36,22 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->required();
 
     $row = $form->addRow();
-        $row->addLabel('startDate', __('Start Date'))->description(__('Required'));
-        $row->addDate('startDate')->required();
+        $row->addLabel('startDate', __('Start Date'))->description($suggested['startSource'] !== '' ? $suggested['startSource'] : __('Required'));
+        $startDate = $row->addDate('startDate')->required();
+        if (!empty($suggested['startDate'])) {
+            $startDate->setValue(Format::date($suggested['startDate']));
+        }
 
     $row = $form->addRow();
         $row->addLabel('switchDate', __('Switch Date'));
         $row->addDate('switchDate');
 
     $row = $form->addRow();
-        $row->addLabel('graduationDate', __('Graduation Date'));
-        $row->addDate('graduationDate');
+        $row->addLabel('graduationDate', __('Graduation Date'))->description($suggested['graduationSource']);
+        $graduationDate = $row->addDate('graduationDate');
+        if (!empty($suggested['graduationDate'])) {
+            $graduationDate->setValue(Format::date($suggested['graduationDate']));
+        }
 
     $row = $form->addRow();
         $row->addLabel('status', __('Status'));
@@ -57,4 +66,15 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         $row->addSubmit();
 
     echo $form->getOutput();
+
+    $reloadURL = $session->get('absoluteURL').'/index.php?q=/modules/'.$session->get('module').'/program_manage_add.php';
+    echo '<script>
+    var student = document.querySelector("form#programAdd select[name=gibbonPersonID]");
+    if (student) {
+        student.addEventListener("change", function () {
+            if (!this.value) return;
+            window.location = '.json_encode($reloadURL).' + "&gibbonPersonID=" + encodeURIComponent(this.value);
+        });
+    }
+    </script>';
 }
