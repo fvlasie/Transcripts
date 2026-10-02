@@ -5,10 +5,10 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.9';
+$version     = '1.0.10';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
-$category    = 'Registrar';
+$category    = 'Assess';
 
 $moduleTables = [
     "CREATE TABLE IF NOT EXISTS `gibbonStudentProgramHistory` (

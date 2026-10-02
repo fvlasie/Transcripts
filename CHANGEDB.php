@@ -55,3 +55,11 @@ UPDATE gibbonAction SET name='Registrar Reports', category='Registrar' WHERE nam
 UPDATE gibbonAction SET name='Transcript Template', category='Registrar' WHERE name='Manage Transcript Template' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
 UPDATE gibbonSetting SET value=CONCAT(value, ',Registrar') WHERE scope='System' AND name='mainMenuCategoryOrder' AND FIND_IN_SET('Registrar', value)=0;end
 ";
+
+//v1.0.10
+++$count;
+$sql[$count][0] = '1.0.10';
+$sql[$count][1] = "
+UPDATE gibbonModule SET category='Assess' WHERE name='Transcripts';end
+UPDATE gibbonSetting SET value=TRIM(BOTH ',' FROM REPLACE(CONCAT(',', value, ','), ',Registrar,', ',')) WHERE scope='System' AND name='mainMenuCategoryOrder' AND FIND_IN_SET('Registrar', value)>0;end
+";
