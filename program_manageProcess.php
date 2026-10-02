@@ -17,25 +17,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
 }
 
 $intent = $_POST['intent'] ?? '';
-if ($intent === 'addProgram' || $intent === 'deleteProgram') {
-    $listURL = Url::fromModuleRoute($moduleName, 'program_manage.php');
-    $programGateway = $container->get(StudentProgramGateway::class);
-
-    if ($intent === 'deleteProgram') {
-        $removed = $programGateway->deleteProgramType($_POST['removeProgramName'] ?? '');
-        header('Location: '.$listURL->withQueryParam('return', $removed ? 'success3' : 'error5'));
-        exit;
-    }
-
-    try {
-        $programGateway->addProgramType($_POST['newProgramName'] ?? '');
-        header('Location: '.$listURL->withQueryParam('return', 'success2'));
-    } catch (\InvalidArgumentException $e) {
-        header('Location: '.$listURL->withQueryParam('return', $e->getMessage() === 'duplicate' ? 'error4' : 'error3'));
-    }
-    exit;
-}
-
 if ($intent === 'addCohort') {
     $listURL = Url::fromModuleRoute($moduleName, 'program_manage.php');
     $gibbonSchoolYearID = (int) ($_POST['gibbonSchoolYearID'] ?? 0);

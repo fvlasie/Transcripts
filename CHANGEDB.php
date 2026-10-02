@@ -79,3 +79,10 @@ $sql[$count][0] = '1.0.12';
 $sql[$count][1] = "
 UPDATE gibbonAction SET name='Program Management' WHERE name='Program Dates Management' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
 ";
+
+//v1.0.13
+++$count;
+$sql[$count][0] = '1.0.13';
+$sql[$count][1] = "
+UPDATE gibbonAction SET URLList='program_manage.php, program_manageProcess.php, program_manage_add.php, program_manage_edit.php, program_manage_editProcess.php, program_type_add.php, program_type_addProcess.php, program_type_delete.php, program_type_deleteProcess.php' WHERE name='Program Management' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+";
