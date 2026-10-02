@@ -108,26 +108,24 @@ class TranscriptGateway extends QueryableGateway
     }
 
     /**
-     * Matches a reporting cycle to a school year term: exact dates, then name, then short name,
-     * then the term containing the cycle's end date.
+     * Matches a reporting cycle to a school year term: exact dates, then name, then short name, then the
+     * most recent term to have started by the cycle's start date, else the year's first term.
+     * Grading cycles often run past the end of their term, so the end date is not used.
      */
     private function getTermMatchSubquery(string $cycleAlias): string
     {
         return "(SELECT t.gibbonSchoolYearTermID
                 FROM gibbonSchoolYearTerm AS t
                 WHERE t.gibbonSchoolYearID = {$cycleAlias}.gibbonSchoolYearID
-                AND (
-                    ({$cycleAlias}.dateStart = t.firstDay AND {$cycleAlias}.dateEnd = t.lastDay)
-                    OR {$cycleAlias}.name = t.name
-                    OR {$cycleAlias}.nameShort = t.nameShort
-                    OR {$cycleAlias}.dateEnd BETWEEN t.firstDay AND t.lastDay
-                )
                 ORDER BY CASE
                     WHEN {$cycleAlias}.dateStart = t.firstDay AND {$cycleAlias}.dateEnd = t.lastDay THEN 0
                     WHEN {$cycleAlias}.name = t.name THEN 1
                     WHEN {$cycleAlias}.nameShort = t.nameShort THEN 2
-                    ELSE 3
-                END, t.sequenceNumber
+                    WHEN t.firstDay <= {$cycleAlias}.dateStart THEN 3
+                    ELSE 4
+                END,
+                CASE WHEN t.firstDay <= {$cycleAlias}.dateStart THEN t.firstDay END DESC,
+                t.sequenceNumber
                 LIMIT 1)";
     }
 
@@ -338,24 +336,17 @@ class TranscriptGateway extends QueryableGateway
             return 0;
         }
 
+        // The same matching the transcript uses, so a term's grades and its setup land in one cycle.
+        $termMatch = $this->getTermMatchSubquery('c');
         $sql = "SELECT c.gibbonReportingCycleID
                 FROM gibbonSchoolYearTerm AS t
                 JOIN gibbonReportingCycle AS c ON c.gibbonSchoolYearID = t.gibbonSchoolYearID
                 WHERE t.gibbonSchoolYearTermID = :gibbonSchoolYearTermID
-                AND (
-                    (c.dateStart = t.firstDay AND c.dateEnd = t.lastDay)
-                    OR c.name = t.name
-                    OR c.nameShort = t.nameShort
-                    OR (c.dateStart >= t.firstDay AND c.dateEnd <= t.lastDay)
-                    OR c.dateEnd BETWEEN t.firstDay AND t.lastDay
-                )
-                ORDER BY CASE
-                    WHEN c.dateStart = t.firstDay AND c.dateEnd = t.lastDay THEN 0
-                    WHEN c.name = t.name THEN 1
-                    WHEN c.nameShort = t.nameShort THEN 2
-                    WHEN c.dateStart >= t.firstDay AND c.dateEnd <= t.lastDay THEN 3
-                    ELSE 4
-                END, c.sequenceNumber, c.gibbonReportingCycleID
+                AND {$termMatch} = t.gibbonSchoolYearTermID
+                ORDER BY
+                    (c.name = t.name OR c.nameShort = t.nameShort) DESC,
+                    EXISTS (SELECT 1 FROM gibbonReportingScope s WHERE s.gibbonReportingCycleID = c.gibbonReportingCycleID AND s.scopeType = 'Course') DESC,
+                    c.sequenceNumber, c.gibbonReportingCycleID
                 LIMIT 1";
 
         return (int)$this->db()->selectOne($sql, ['gibbonSchoolYearTermID' => $gibbonSchoolYearTermID]);
