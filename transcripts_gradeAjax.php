@@ -147,7 +147,18 @@ if ($action === 'saveCatalog') {
 
 if ($action === 'setupTerm') {
     $gibbonSchoolYearTermID = (int)($_POST['gibbonSchoolYearTermID'] ?? 0);
-    if ($gibbonSchoolYearTermID <= 0 || $transcriptGateway->ensureReportingCycleForTerm($gibbonSchoolYearTermID) <= 0) {
+    $gibbonCourseClassID = (int)($_POST['gibbonCourseClassID'] ?? 0);
+
+    $class = $transcriptGateway->getClassCourseAndYear($gibbonCourseClassID);
+    if (empty($class) || !$transcriptGateway->isStudentLinkedToClass($gibbonPersonID, $gibbonCourseClassID)) {
+        $fail(__('This student is not enrolled in the selected class.'));
+    }
+    $termIDs = array_map('intval', array_keys($transcriptGateway->getTermsBySchoolYear((int)$class['gibbonSchoolYearID'])));
+    if (!in_array($gibbonSchoolYearTermID, $termIDs, true)) {
+        $fail(__('The selected term is not in this class\'s school year.'));
+    }
+
+    if ($transcriptGateway->ensureReportingCycleForTerm($gibbonSchoolYearTermID, (int)$class['gibbonCourseID']) <= 0) {
         $fail(__('Grading could not be set up for this term. Check that an active grade scale exists.'));
     }
 

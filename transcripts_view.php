@@ -241,6 +241,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                                 'action' => 'setupTerm',
                                 'csrftoken' => $editContext['csrftoken'],
                                 'gibbonPersonID' => $editContext['gibbonPersonID'],
+                                'gibbonCourseClassID' => (int)$row['gibbonCourseClassID'],
                             ];
 
                             $html = '<div class="transcriptGradeCell flex items-center gap-2">';
@@ -252,7 +253,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                             $html .= '<button type="button" class="button"'
                                 .' hx-post="'.htmlspecialchars($editContext['ajaxURL']).'" hx-include="#'.$selectID.'" hx-target="closest .transcriptGradeCell" hx-swap="outerHTML"'
                                 .' hx-vals="'.htmlspecialchars(json_encode($vals), ENT_QUOTES).'"'
-                                .' hx-confirm="'.htmlspecialchars(__('This creates a reporting cycle and a Grade criterion for the selected term in the Reports module, so grades for that term can be entered here and in Write Reports. Continue?')).'">'
+                                .' hx-confirm="'.htmlspecialchars(sprintf(__('This adds a grade criterion for %1$s to the selected term\'s reporting cycle in Reports (creating the cycle if needed), so grades can be entered here and in Write Reports. Continue?'), $row['courseCode'])).'">'
                                 .__('Set up grading for this term').'</button>';
                             $html .= '</div>';
 

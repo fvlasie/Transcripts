@@ -229,6 +229,19 @@ class TranscriptGateway extends QueryableGateway
         return !empty($row) && is_array($row) ? $row : null;
     }
 
+    public function getClassCourseAndYear(int $gibbonCourseClassID): ?array
+    {
+        $row = $this->db()->selectOne(
+            "SELECT gibbonCourse.gibbonCourseID, gibbonCourse.gibbonSchoolYearID
+             FROM gibbonCourseClass
+             JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+             WHERE gibbonCourseClass.gibbonCourseClassID = :gibbonCourseClassID",
+            ['gibbonCourseClassID' => $gibbonCourseClassID]
+        );
+
+        return !empty($row) && is_array($row) ? $row : null;
+    }
+
     public function isStudentLinkedToClass(int $gibbonPersonID, int $gibbonCourseClassID): bool
     {
         $sql = "SELECT (
@@ -320,27 +333,35 @@ class TranscriptGateway extends QueryableGateway
                     (c.dateStart = t.firstDay AND c.dateEnd = t.lastDay)
                     OR c.name = t.name
                     OR c.nameShort = t.nameShort
+                    OR (c.dateStart >= t.firstDay AND c.dateEnd <= t.lastDay)
+                    OR c.dateEnd BETWEEN t.firstDay AND t.lastDay
                 )
                 ORDER BY CASE
                     WHEN c.dateStart = t.firstDay AND c.dateEnd = t.lastDay THEN 0
-                    ELSE 1
-                END, c.gibbonReportingCycleID
+                    WHEN c.name = t.name THEN 1
+                    WHEN c.nameShort = t.nameShort THEN 2
+                    WHEN c.dateStart >= t.firstDay AND c.dateEnd <= t.lastDay THEN 3
+                    ELSE 4
+                END, c.sequenceNumber, c.gibbonReportingCycleID
                 LIMIT 1";
 
         return (int)$this->db()->selectOne($sql, ['gibbonSchoolYearTermID' => $gibbonSchoolYearTermID]);
     }
 
     /**
-     * Creates (or completes) the reporting cycle, Course scope and Grade Scale criterion for a term.
+     * Creates (or completes) the term's reporting cycle, a Course scope, and a Grade Scale criterion for the
+     * course. Write Reports only shows Course criteria tied to the class's course, so the criterion always is.
      * Only called from the explicit "Set up grading for this term" action.
      */
-    public function ensureReportingCycleForTerm(int $gibbonSchoolYearTermID): int
+    public function ensureReportingCycleForTerm(int $gibbonSchoolYearTermID, int $gibbonCourseID): int
     {
+        if ($gibbonCourseID <= 0) {
+            return 0;
+        }
+
         $existing = $this->getReportingCycleIDForTerm($gibbonSchoolYearTermID);
         if ($existing > 0) {
-            $this->ensureReportingCriteriaForCycle($existing);
-
-            return $existing;
+            return $this->ensureCourseCriterionForCycle($existing, $gibbonCourseID) ? $existing : 0;
         }
 
         $term = $this->db()->selectOne(
@@ -386,15 +407,18 @@ class TranscriptGateway extends QueryableGateway
             return $this->getReportingCycleIDForTerm($gibbonSchoolYearTermID);
         }
 
-        $this->ensureReportingCriteriaForCycle($cycleID);
-
-        return $cycleID;
+        return $this->ensureCourseCriterionForCycle($cycleID, $gibbonCourseID) ? $cycleID : 0;
     }
 
-    private function ensureReportingCriteriaForCycle(int $gibbonReportingCycleID): void
+    /**
+     * Returns true when the cycle has (or now has) a Per Student Grade Scale criterion for the course.
+     * Uses the cycle's scope named "Course" when there is one, then any Course scope, then creates one;
+     * the criterion type and name follow the most recently created Grade Scale course criterion.
+     */
+    private function ensureCourseCriterionForCycle(int $gibbonReportingCycleID, int $gibbonCourseID): bool
     {
         if ($gibbonReportingCycleID <= 0) {
-            return;
+            return false;
         }
 
         $existingCriteria = (int)$this->db()->selectOne(
@@ -403,14 +427,14 @@ class TranscriptGateway extends QueryableGateway
              JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
              JOIN gibbonReportingScope ON gibbonReportingScope.gibbonReportingScopeID = gibbonReportingCriteria.gibbonReportingScopeID AND gibbonReportingScope.scopeType = 'Course'
              WHERE gibbonReportingCriteria.gibbonReportingCycleID = :gibbonReportingCycleID
-             AND gibbonReportingCriteria.gibbonCourseID IS NULL
+             AND gibbonReportingCriteria.gibbonCourseID = :gibbonCourseID
              AND gibbonReportingCriteria.target = 'Per Student'
              AND gibbonReportingCriteriaType.valueType = 'Grade Scale'
              LIMIT 1",
-            ['gibbonReportingCycleID' => $gibbonReportingCycleID]
+            ['gibbonReportingCycleID' => $gibbonReportingCycleID, 'gibbonCourseID' => $gibbonCourseID]
         );
         if ($existingCriteria > 0) {
-            return;
+            return true;
         }
 
         $scopeID = (int)$this->db()->selectOne(
@@ -418,7 +442,7 @@ class TranscriptGateway extends QueryableGateway
              FROM gibbonReportingScope
              WHERE gibbonReportingCycleID = :gibbonReportingCycleID
              AND scopeType = 'Course'
-             ORDER BY sequenceNumber, gibbonReportingScopeID
+             ORDER BY (name = 'Course') DESC, sequenceNumber, gibbonReportingScopeID
              LIMIT 1",
             ['gibbonReportingCycleID' => $gibbonReportingCycleID]
         );
@@ -430,14 +454,30 @@ class TranscriptGateway extends QueryableGateway
             );
         }
 
-        $criteriaTypeID = (int)$this->db()->selectOne(
-            "SELECT gibbonReportingCriteriaTypeID
-             FROM gibbonReportingCriteriaType
-             WHERE valueType = 'Grade Scale' AND active = 'Y'
-             ORDER BY gibbonReportingCriteriaTypeID
+        $template = $this->db()->selectOne(
+            "SELECT gibbonReportingCriteria.gibbonReportingCriteriaTypeID, gibbonReportingCriteria.name,
+                    COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID
+             FROM gibbonReportingCriteria
+             JOIN gibbonReportingCriteriaType ON gibbonReportingCriteriaType.gibbonReportingCriteriaTypeID = gibbonReportingCriteria.gibbonReportingCriteriaTypeID
+             WHERE gibbonReportingCriteriaType.valueType = 'Grade Scale' AND gibbonReportingCriteriaType.active = 'Y'
+             AND gibbonReportingCriteria.target = 'Per Student'
+             AND gibbonReportingCriteria.gibbonCourseID IS NOT NULL
+             ORDER BY gibbonReportingCriteria.gibbonReportingCriteriaID DESC
              LIMIT 1"
         );
-        $scaleID = $this->getDefaultGradeScaleID();
+        $template = is_array($template) ? $template : [];
+
+        $criteriaTypeID = (int)($template['gibbonReportingCriteriaTypeID'] ?? 0);
+        $scaleID = (int)($template['gibbonScaleID'] ?? 0) ?: $this->getDefaultGradeScaleID();
+        if ($criteriaTypeID <= 0) {
+            $criteriaTypeID = (int)$this->db()->selectOne(
+                "SELECT gibbonReportingCriteriaTypeID
+                 FROM gibbonReportingCriteriaType
+                 WHERE valueType = 'Grade Scale' AND active = 'Y'
+                 ORDER BY gibbonReportingCriteriaTypeID
+                 LIMIT 1"
+            );
+        }
         if ($criteriaTypeID <= 0 && $scaleID > 0) {
             $criteriaTypeID = (int)$this->db()->insert(
                 "INSERT INTO gibbonReportingCriteriaType (name, valueType, active, gibbonScaleID)
@@ -447,21 +487,29 @@ class TranscriptGateway extends QueryableGateway
         }
 
         if ($scopeID <= 0 || $criteriaTypeID <= 0) {
-            return;
+            return false;
         }
 
-        $this->db()->insert(
+        $sequenceNumber = (int)$this->db()->selectOne(
+            "SELECT COALESCE(MAX(sequenceNumber), 0) + 1 FROM gibbonReportingCriteria WHERE gibbonReportingScopeID = :gibbonReportingScopeID",
+            ['gibbonReportingScopeID' => $scopeID]
+        );
+
+        return (int)$this->db()->insert(
             "INSERT INTO gibbonReportingCriteria
-                (gibbonReportingCycleID, gibbonReportingScopeID, gibbonReportingCriteriaTypeID, target, name, gibbonScaleID, sequenceNumber)
+                (gibbonReportingCycleID, gibbonReportingScopeID, gibbonReportingCriteriaTypeID, gibbonCourseID, target, name, gibbonScaleID, sequenceNumber)
              VALUES
-                (:gibbonReportingCycleID, :gibbonReportingScopeID, :gibbonReportingCriteriaTypeID, 'Per Student', 'Grade', :gibbonScaleID, 1)",
+                (:gibbonReportingCycleID, :gibbonReportingScopeID, :gibbonReportingCriteriaTypeID, :gibbonCourseID, 'Per Student', :name, :gibbonScaleID, :sequenceNumber)",
             [
                 'gibbonReportingCycleID' => $gibbonReportingCycleID,
                 'gibbonReportingScopeID' => $scopeID,
                 'gibbonReportingCriteriaTypeID' => $criteriaTypeID,
+                'gibbonCourseID' => $gibbonCourseID,
+                'name' => trim((string)($template['name'] ?? '')) ?: 'Grade',
                 'gibbonScaleID' => $scaleID > 0 ? $scaleID : null,
+                'sequenceNumber' => $sequenceNumber,
             ]
-        );
+        ) > 0;
     }
 
     private function getDefaultGradeScaleID(): int
