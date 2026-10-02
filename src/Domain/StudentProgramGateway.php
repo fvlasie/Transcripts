@@ -261,6 +261,93 @@ class StudentProgramGateway extends QueryableGateway
         }
     }
 
+    /**
+     * Full students enrolled in a school year, optionally one year group, with their active program if they have one.
+     */
+    public function selectCohortStudents(int $gibbonSchoolYearID, int $gibbonYearGroupID = 0, string $gender = ''): array
+    {
+        if ($gibbonSchoolYearID <= 0) {
+            return [];
+        }
+        if (!in_array($gender, ['', 'M', 'F', 'Other', 'Unspecified'], true)) {
+            $gender = '';
+        }
+
+        return $this->db()->select(
+            "SELECT gibbonPerson.gibbonPersonID, gibbonPerson.preferredName, gibbonPerson.surname, gibbonPerson.username,
+                    gibbonPerson.gender, gibbonYearGroup.name AS yearGroup,
+                    (SELECT gibbonStudentProgramHistory.programType
+                     FROM gibbonStudentProgramHistory
+                     WHERE gibbonStudentProgramHistory.gibbonPersonID = gibbonPerson.gibbonPersonID
+                     AND gibbonStudentProgramHistory.status = 'Active'
+                     ORDER BY gibbonStudentProgramHistory.startDate DESC
+                     LIMIT 1) AS activeProgram
+             FROM gibbonPerson
+             JOIN gibbonStudentEnrolment ON gibbonStudentEnrolment.gibbonPersonID = gibbonPerson.gibbonPersonID
+             JOIN gibbonYearGroup ON gibbonYearGroup.gibbonYearGroupID = gibbonStudentEnrolment.gibbonYearGroupID
+             WHERE gibbonStudentEnrolment.gibbonSchoolYearID = :gibbonSchoolYearID
+             AND gibbonPerson.status = 'Full'
+             AND (:yearGroupAll = 0 OR gibbonStudentEnrolment.gibbonYearGroupID = :gibbonYearGroupID)
+             AND (:genderAll = '' OR gibbonPerson.gender = :gender)
+             ORDER BY gibbonYearGroup.sequenceNumber, gibbonPerson.surname, gibbonPerson.preferredName",
+            [
+                'gibbonSchoolYearID' => $gibbonSchoolYearID,
+                'yearGroupAll' => $gibbonYearGroupID,
+                'gibbonYearGroupID' => $gibbonYearGroupID,
+                'genderAll' => $gender,
+                'gender' => $gender,
+            ]
+        )->fetchAll() ?: [];
+    }
+
+    /**
+     * Create the same program record for each selected student. Students who already have an active
+     * record of that program are skipped. Person IDs outside $allowedPersonIDs are ignored.
+     *
+     * @return array{added: int, skipped: int}
+     */
+    public function addProgramsForPeople(array $personIDs, array $allowedPersonIDs, string $programType, string $startDate, string $status, ?string $notes): array
+    {
+        $result = ['added' => 0, 'skipped' => 0];
+        if (!$this->programTypeExists($programType) || $startDate === '' || $startDate === '0000-00-00') {
+            throw new \InvalidArgumentException('invalid');
+        }
+        if (!in_array($status, ['Active', 'Switched', 'Graduated', 'Withdrawn', 'On Leave'], true)) {
+            throw new \InvalidArgumentException('invalid');
+        }
+
+        $allowed = array_fill_keys(array_map('intval', $allowedPersonIDs), true);
+        $notes = trim((string) $notes);
+
+        foreach (array_unique(array_map('intval', $personIDs)) as $personID) {
+            if ($personID <= 0 || !isset($allowed[$personID])) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $existing = (int) $this->db()->selectOne(
+                "SELECT COUNT(*) FROM gibbonStudentProgramHistory
+                 WHERE gibbonPersonID = :gibbonPersonID AND programType = :programType AND status = 'Active'",
+                ['gibbonPersonID' => $personID, 'programType' => $programType]
+            );
+            if ($existing > 0) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $this->insert([
+                'gibbonPersonID' => $personID,
+                'programType' => $programType,
+                'startDate' => $startDate,
+                'status' => $status,
+                'notes' => $notes !== '' ? $notes : null,
+            ]);
+            $result['added']++;
+        }
+
+        return $result;
+    }
+
     public function addProgramHistory(array $data): int
     {
         return $this->insert($data);

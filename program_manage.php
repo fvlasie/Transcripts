@@ -49,6 +49,16 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
 
     echo $filterForm->getOutput();
 
+    if (isset($_GET['programsAdded'])) {
+        $added = (int) $_GET['programsAdded'];
+        $skipped = (int) ($_GET['programsSkipped'] ?? 0);
+        echo Format::alert(sprintf(
+            __('Added %1$s program records. %2$s students already had that active program and were skipped.'),
+            $added,
+            $skipped
+        ), $added > 0 ? 'success' : 'warning');
+    }
+
     $criteria = $programGateway->newQueryCriteria(true)
         ->filterBy('gibbonPersonID', $gibbonPersonID)
         ->fromPOST('programRecords');
@@ -64,6 +74,11 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
 
     $addAction = $table->addHeaderAction('add', __('Add'))
         ->setURL('/modules/Transcripts/program_manage_add.php')
+        ->displayLabel();
+
+    $table->addHeaderAction('page_new', __('Add Cohort'))
+        ->setURL('/modules/Transcripts/program_manage_add.php')
+        ->addParam('cohort', '1')
         ->displayLabel();
 
     if (!empty($gibbonPersonID)) {

@@ -36,6 +36,44 @@ if ($intent === 'addProgram' || $intent === 'deleteProgram') {
     exit;
 }
 
+if ($intent === 'addCohort') {
+    $listURL = Url::fromModuleRoute($moduleName, 'program_manage.php');
+    $gibbonSchoolYearID = (int) ($_POST['gibbonSchoolYearID'] ?? 0);
+    $gibbonYearGroupID = (int) ($_POST['gibbonYearGroupID'] ?? 0);
+    $gender = in_array($_POST['gender'] ?? '', ['M', 'F', 'Other', 'Unspecified'], true) ? $_POST['gender'] : '';
+    $personIDs = array_filter(array_map('intval', (array) ($_POST['gibbonPersonID'] ?? [])));
+    $programType = $_POST['programType'] ?? '';
+    $startDate = Format::dateConvert($_POST['startDate'] ?? '');
+    $status = $_POST['status'] ?? '';
+
+    $programGateway = $container->get(StudentProgramGateway::class);
+    if ($gibbonSchoolYearID <= 0 || empty($personIDs) || $programType === '' || empty($startDate) || $status === '') {
+        header('Location: '.$listURL->withQueryParam('return', 'error1'));
+        exit;
+    }
+
+    $allowed = array_column($programGateway->selectCohortStudents($gibbonSchoolYearID, $gibbonYearGroupID, $gender), 'gibbonPersonID');
+    try {
+        $result = $programGateway->addProgramsForPeople(
+            $personIDs,
+            $allowed,
+            $programType,
+            $startDate,
+            $status,
+            $_POST['notes'] ?? null
+        );
+    } catch (\InvalidArgumentException $e) {
+        header('Location: '.$listURL->withQueryParam('return', 'error1'));
+        exit;
+    }
+
+    header('Location: '.$listURL->withQueryParams([
+        'programsAdded' => $result['added'],
+        'programsSkipped' => $result['skipped'],
+    ]));
+    exit;
+}
+
 $gibbonPersonID = (int)($_POST['gibbonPersonID'] ?? 0);
 $programType = $_POST['programType'] ?? '';
 $startDate = $_POST['startDate'] ?? '';
