@@ -425,7 +425,8 @@ class TranscriptGateway extends QueryableGateway
 
     /**
      * Returns true when the cycle has (or now has) a Per Student Grade Scale criterion for the course.
-     * Uses the cycle's scope named "Course" when there is one, then any Course scope, then creates one;
+     * Uses the cycle's scope named "Course", creating it (with the cycle's existing write access) when missing,
+     * so older per-course scopes are never borrowed for another course;
      * the criterion type and name follow the most recently created Grade Scale course criterion.
      */
     private function ensureCourseCriterionForCycle(int $gibbonReportingCycleID, int $gibbonCourseID): bool
@@ -454,17 +455,28 @@ class TranscriptGateway extends QueryableGateway
             "SELECT gibbonReportingScopeID
              FROM gibbonReportingScope
              WHERE gibbonReportingCycleID = :gibbonReportingCycleID
-             AND scopeType = 'Course'
-             ORDER BY (name = 'Course') DESC, sequenceNumber, gibbonReportingScopeID
+             AND scopeType = 'Course' AND name = 'Course'
+             ORDER BY sequenceNumber, gibbonReportingScopeID
              LIMIT 1",
             ['gibbonReportingCycleID' => $gibbonReportingCycleID]
         );
         if ($scopeID <= 0) {
             $scopeID = (int)$this->db()->insert(
                 "INSERT INTO gibbonReportingScope (gibbonReportingCycleID, scopeType, name, sequenceNumber)
-                 VALUES (:gibbonReportingCycleID, 'Course', 'Course', 1)",
-                ['gibbonReportingCycleID' => $gibbonReportingCycleID]
+                 SELECT :gibbonReportingCycleID, 'Course', 'Course', COALESCE(MAX(sequenceNumber), 0) + 1
+                 FROM gibbonReportingScope WHERE gibbonReportingCycleID = :cycleID",
+                ['gibbonReportingCycleID' => $gibbonReportingCycleID, 'cycleID' => $gibbonReportingCycleID]
             );
+
+            // Reports only lets roles write to scopes listed in the cycle's access rows.
+            if ($scopeID > 0) {
+                $this->db()->update(
+                    "UPDATE gibbonReportingAccess
+                     SET gibbonReportingScopeIDList = CONCAT_WS(',', NULLIF(gibbonReportingScopeIDList, ''), LPAD(:gibbonReportingScopeID, 10, '0'))
+                     WHERE gibbonReportingCycleID = :gibbonReportingCycleID",
+                    ['gibbonReportingScopeID' => $scopeID, 'gibbonReportingCycleID' => $gibbonReportingCycleID]
+                );
+            }
         }
 
         $template = $this->db()->selectOne(
