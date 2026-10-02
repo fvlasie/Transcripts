@@ -49,7 +49,6 @@ class StudentProgramGateway extends QueryableGateway
                 'gibbonStudentProgramHistory.gibbonStudentProgramHistoryID',
                 'gibbonStudentProgramHistory.gibbonPersonID',
                 'gibbonStudentProgramHistory.programType',
-                'gibbonStudentProgramHistory.concentration',
                 'gibbonStudentProgramHistory.studentLevel',
                 'gibbonStudentProgramHistory.startDate',
                 'gibbonStudentProgramHistory.switchDate',

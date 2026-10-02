@@ -16,6 +16,16 @@ class RegistrarQueryGateway extends QueryableGateway
     private static $primaryKey = 'gibbonPersonID';
     private static $searchableColumns = ['gibbonPerson.surname', 'gibbonPerson.preferredName', 'gibbonPerson.firstName', 'gibbonCourse.name', 'gibbonCourse.nameShort'];
 
+    public function selectLearningAreas(): array
+    {
+        $rows = $this->db()->select(
+            "SELECT name FROM gibbonDepartment WHERE type = 'Learning Area' AND name <> '' ORDER BY name"
+        )->fetchAll() ?: [];
+        $names = array_column($rows, 'name');
+
+        return array_combine($names, $names) ?: [];
+    }
+
     public function queryStudentRecords(QueryCriteria $criteria): DataSet
     {
         $criteria->addFilterRules($this->getFilterRules());
@@ -34,6 +44,7 @@ class RegistrarQueryGateway extends QueryableGateway
             ->leftJoin('gibbonCourseClassPerson', 'gibbonPerson.gibbonPersonID = gibbonCourseClassPerson.gibbonPersonID AND gibbonCourseClassPerson.role = "Student"')
             ->leftJoin('gibbonCourseClass', 'gibbonCourseClassPerson.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID')
             ->leftJoin('gibbonCourse', 'gibbonCourseClass.gibbonCourseID = gibbonCourse.gibbonCourseID')
+            ->leftJoin('gibbonDepartment', 'gibbonDepartment.gibbonDepartmentID = gibbonCourse.gibbonDepartmentID AND gibbonDepartment.type = "Learning Area"')
             ->where('gibbonPerson.status = "Full"')
             ->where('gibbonPerson.gibbonRoleIDPrimary = (SELECT gibbonRoleID FROM gibbonRole WHERE category = "Student" LIMIT 1)');
 
@@ -55,7 +66,7 @@ class RegistrarQueryGateway extends QueryableGateway
                 'gibbonPerson.preferredName',
                 'gibbonPerson.gender',
                 'gibbonStudentProgramHistory.programType',
-                'gibbonStudentProgramHistory.concentration',
+                'gibbonDepartment.name AS concentration',
                 'gibbonStudentProgramHistory.studentLevel',
                 'gibbonStudentProgramHistory.startDate AS programStartDate',
                 'gibbonStudentProgramHistory.graduationDate',
@@ -68,6 +79,7 @@ class RegistrarQueryGateway extends QueryableGateway
             ->leftJoin('gibbonCourseClassPerson', 'gibbonPerson.gibbonPersonID = gibbonCourseClassPerson.gibbonPersonID AND gibbonCourseClassPerson.role = "Student"')
             ->leftJoin('gibbonCourseClass', 'gibbonCourseClassPerson.gibbonCourseClassID = gibbonCourseClass.gibbonCourseClassID')
             ->leftJoin('gibbonCourse', 'gibbonCourseClass.gibbonCourseID = gibbonCourse.gibbonCourseID')
+            ->leftJoin('gibbonDepartment', 'gibbonDepartment.gibbonDepartmentID = gibbonCourse.gibbonDepartmentID AND gibbonDepartment.type = "Learning Area"')
             ->where('gibbonPerson.status = "Full"')
             ->where('gibbonPerson.gibbonRoleIDPrimary = (SELECT gibbonRoleID FROM gibbonRole WHERE category = "Student" LIMIT 1)')
             ->orderBy(['gibbonPerson.surname ASC', 'gibbonPerson.preferredName ASC', 'gibbonCourse.nameShort ASC']);
@@ -83,7 +95,7 @@ class RegistrarQueryGateway extends QueryableGateway
             },
             'concentration' => function ($query, $concentration) {
                 return $query
-                    ->where('gibbonStudentProgramHistory.concentration = :concentration')
+                    ->where('gibbonDepartment.name = :concentration')
                     ->bindValue('concentration', $concentration);
             },
             'studentLevel' => function ($query, $studentLevel) {

@@ -73,6 +73,7 @@ class TranscriptService
                     'courseName' => $r->getCourseName(),
                     'courseLevel' => $r->getCourseLevel(),
                     'modeOfInstruction' => $r->getModeOfInstruction(),
+                    'learningArea' => $r->getLearningArea(),
                     'credits' => $r->getCredits(),
                     'letterGrade' => $r->getLetterGrade(),
                     'numericGrade' => $r->getNumericGrade(),

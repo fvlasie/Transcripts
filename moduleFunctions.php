@@ -156,17 +156,6 @@ function getTranscriptsProgramTypes(): array
     ];
 }
 
-function getTranscriptsConcentrations(): array
-{
-    return [
-        'Biblical' => 'Biblical',
-        'Professional' => 'Professional',
-        'General' => 'General',
-        'Certificate' => 'Certificate',
-        'Masters' => 'Masters',
-    ];
-}
-
 function getTranscriptsStudentLevels(): array
 {
     return [
@@ -537,7 +526,6 @@ function formatTranscriptsProgramLabel(array $program): string
 {
     $parts = array_filter([
         $program['programType'] ?? '',
-        $program['concentration'] ?? '',
         $program['status'] ?? '',
     ]);
 

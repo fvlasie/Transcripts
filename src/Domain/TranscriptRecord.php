@@ -13,6 +13,7 @@ class TranscriptRecord
     private ?string $externalCourseCode;
     private string $courseLevel;
     private string $modeOfInstruction;
+    private ?string $learningArea;
     private float $credits;
     private ?string $letterGrade;
     private ?float $numericGrade;
@@ -38,6 +39,7 @@ class TranscriptRecord
         $this->externalCourseCode = trim((string)($data['externalCourseCode'] ?? '')) ?: null;
         $this->courseLevel = $data['courseLevel'] ?? 'BTh';
         $this->modeOfInstruction = $data['modeOfInstruction'] ?? 'In-person';
+        $this->learningArea = trim((string)($data['learningArea'] ?? '')) ?: null;
         $this->credits = (float)($data['credits'] ?? 0.0);
         $letterGrade = trim((string)($data['letterGrade'] ?? ''));
         $this->letterGrade = $letterGrade !== '' ? $letterGrade : null;
@@ -141,6 +143,7 @@ class TranscriptRecord
     public function getExternalCourseCode(): ?string { return $this->externalCourseCode; }
     public function getCourseLevel(): string { return $this->courseLevel; }
     public function getModeOfInstruction(): string { return $this->modeOfInstruction; }
+    public function getLearningArea(): ?string { return $this->learningArea; }
     public function getCredits(): float { return $this->credits; }
     public function getLetterGrade(): ?string { return $this->letterGrade; }
     public function getNumericGrade(): ?float { return $this->numericGrade; }

@@ -74,9 +74,8 @@
                         <th class="col-course">Course</th>
                         <th class="col-grade">Grade</th>
                         <th class="col-points">Points</th>
-                        <th class="col-biblical">Biblical/Theological</th>
-                        <th class="col-general">General</th>
-                        <th class="col-professional">Professional</th>
+                        <th class="col-credits">Credits</th>
+                        <th class="col-concentration">Concentration</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,25 +84,29 @@
                         <td class="col-course"><?php echo $course['courseNameHtml'] ?? htmlspecialchars($course['courseName']); ?></td>
                         <td class="col-grade"><?php echo htmlspecialchars($course['letterGrade']); ?></td>
                         <td class="col-points"><?php echo $course['gpaPoints'] !== null ? htmlspecialchars(number_format((float)$course['gpaPoints'], 1)) : '-'; ?></td>
-                        <td class="col-biblical"><?php echo $course['biblicalCredits'] > 0 ? htmlspecialchars(number_format($course['biblicalCredits'], 0)) : ''; ?></td>
-                        <td class="col-general"><?php echo $course['generalCredits'] > 0 ? htmlspecialchars(number_format($course['generalCredits'], 0)) : ''; ?></td>
-                        <td class="col-professional"><?php echo $course['professionalCredits'] > 0 ? htmlspecialchars(number_format($course['professionalCredits'], 0)) : ''; ?></td>
+                        <td class="col-credits"><?php echo htmlspecialchars($course['creditsLabel'] ?? ''); ?></td>
+                        <td class="col-concentration"><?php echo htmlspecialchars($course['learningArea'] ?? ''); ?></td>
                     </tr>
                     <?php endforeach; ?>
                     <tr class="term-summary-row term-summary-start">
                         <td class="col-course">Term Grade Point Average:</td>
                         <td class="col-grade"></td>
                         <td class="col-points summary-value"><?php echo $term['termGPA'] !== null ? htmlspecialchars(number_format($term['termGPA'], 2)) : '-'; ?></td>
-                        <td class="col-concentration-label" colspan="3"><em>Term Credits per Concentration:</em></td>
+                        <td></td>
+                        <td></td>
                     </tr>
                     <tr class="term-summary-row">
                         <td class="col-course">Total Term Credits:</td>
-                        <td class="col-points summary-value"><?php echo htmlspecialchars(number_format($term['totalCredits'], 0)); ?></td>
-                        <td class="col-grade"></td>
-                        <td class="col-biblical summary-value"><?php echo htmlspecialchars(number_format($term['biblicalCredits'], 0)); ?></td>
-                        <td class="col-general summary-value"><?php echo htmlspecialchars(number_format($term['generalCredits'], 0)); ?></td>
-                        <td class="col-professional summary-value"><?php echo htmlspecialchars(number_format($term['professionalCredits'], 0)); ?></td>
+                        <td></td>
+                        <td></td>
+                        <td class="col-credits summary-value"><?php echo htmlspecialchars($term['totalCreditsLabel'] ?? ''); ?></td>
+                        <td></td>
                     </tr>
+                    <?php if (!empty($term['concentrationSummary'])): ?>
+                    <tr class="term-summary-row">
+                        <td class="col-concentration-label" colspan="5"><em>Term Credits per Concentration:</em> <?php echo htmlspecialchars($term['concentrationSummary']); ?></td>
+                    </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

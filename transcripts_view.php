@@ -163,6 +163,10 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                     return htmlspecialchars($row['externalCourseCode'] ?? '');
                 });
             $table->addColumn('courseName', __('Course Name'));
+            $table->addColumn('learningArea', __('Concentration'))
+                ->format(function ($row) {
+                    return htmlspecialchars($row['learningArea'] ?? '');
+                });
             $table->addColumn('courseLevel', __('Level'));
             $table->addColumn('modeOfInstruction', __('Mode'));
             $table->addColumn('credits', __('Credits'))

@@ -50,10 +50,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
             $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->required()->selected($program['programType']);
 
         $row = $form->addRow();
-            $row->addLabel('concentration', __('Concentration'));
-            $row->addSelect('concentration')->fromArray(getTranscriptsConcentrations())->required()->selected($program['concentration']);
-
-        $row = $form->addRow();
             $row->addLabel('studentLevel', __('Student Level'));
             $row->addSelect('studentLevel')->fromArray(getTranscriptsStudentLevels())->placeholder()->selected($program['studentLevel']);
 

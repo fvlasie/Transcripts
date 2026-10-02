@@ -23,32 +23,29 @@ class TranscriptLayoutService
                     'courses' => [],
                     'totalCredits' => 0.0,
                     'weightedPoints' => 0.0,
-                    'biblicalCredits' => 0.0,
-                    'generalCredits' => 0.0,
-                    'professionalCredits' => 0.0,
+                    'concentrationCredits' => [],
                 ];
             }
 
             $credits = (float)($record['credits'] ?? 0);
             $gpaPoints = $record['gpaPoints'] ?? null;
             $gpaWeight = ($gpaPoints !== null && $credits > 0) ? $credits : 0.0;
-            $creditSplit = $this->splitCreditsByConcentration($record, $activeProgram);
+            $learningArea = trim((string)($record['learningArea'] ?? ''));
 
             $terms[$termKey]['courses'][] = [
                 'courseName' => $this->formatCourseName($record),
                 'courseNameHtml' => $this->formatHangingCourseNameHtml($this->formatCourseName($record)),
                 'letterGrade' => $record['letterGrade'] ?? '-',
                 'gpaPoints' => $gpaPoints,
-                'biblicalCredits' => $creditSplit['biblical'],
-                'generalCredits' => $creditSplit['general'],
-                'professionalCredits' => $creditSplit['professional'],
+                'creditsLabel' => $this->formatCredits($credits),
+                'learningArea' => $learningArea,
             ];
 
             $terms[$termKey]['totalCredits'] += $credits;
             $terms[$termKey]['gpaUnits'] = ($terms[$termKey]['gpaUnits'] ?? 0) + $gpaWeight;
-            $terms[$termKey]['biblicalCredits'] += $creditSplit['biblical'];
-            $terms[$termKey]['generalCredits'] += $creditSplit['general'];
-            $terms[$termKey]['professionalCredits'] += $creditSplit['professional'];
+            if ($learningArea !== '') {
+                $terms[$termKey]['concentrationCredits'][$learningArea] = ($terms[$termKey]['concentrationCredits'][$learningArea] ?? 0) + $credits;
+            }
 
             if ($gpaWeight > 0) {
                 $terms[$termKey]['weightedPoints'] += ($gpaPoints * $gpaWeight);
@@ -60,8 +57,17 @@ class TranscriptLayoutService
             $term['termGPA'] = $gpaUnits > 0
                 ? round($term['weightedPoints'] / $gpaUnits, 2)
                 : null;
+            $term['totalCreditsLabel'] = $this->formatCredits((float)$term['totalCredits']);
 
-            unset($term['weightedPoints'], $term['gpaUnits']);
+            $byArea = $term['concentrationCredits'] ?? [];
+            ksort($byArea);
+            $parts = [];
+            foreach ($byArea as $name => $amount) {
+                $parts[] = $name.' '.$this->formatCredits((float)$amount);
+            }
+            $term['concentrationSummary'] = implode(', ', $parts);
+
+            unset($term['weightedPoints'], $term['gpaUnits'], $term['concentrationCredits']);
 
             return $term;
         }, $terms));
@@ -125,19 +131,10 @@ class TranscriptLayoutService
         return htmlspecialchars($first).'<div class="course-hang">'.htmlspecialchars($rest).'</div>';
     }
 
-    private function splitCreditsByConcentration(array $record, ?array $activeProgram): array
+    private function formatCredits(float $credits): string
     {
-        $credits = (float)($record['credits'] ?? 0);
-        $concentration = $activeProgram['concentration'] ?? 'General';
-
-        if ($concentration === 'Professional') {
-            return ['biblical' => 0.0, 'general' => 0.0, 'professional' => $credits];
-        }
-
-        if ($concentration === 'Biblical') {
-            return ['biblical' => $credits, 'general' => 0.0, 'professional' => 0.0];
-        }
-
-        return ['biblical' => 0.0, 'general' => $credits, 'professional' => 0.0];
+        return abs($credits - round($credits)) < 0.001
+            ? number_format($credits, 0)
+            : number_format($credits, 2);
     }
 }

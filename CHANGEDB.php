@@ -17,3 +17,11 @@ DELETE FROM gibbonAction WHERE name='Manage Course Programs' AND gibbonModuleID=
 UPDATE gibbonAction SET URLList='transcripts_view.php, transcript_print.php, transcripts_gradeAjax.php, transcripts_cleanup.php' WHERE name='Generate Transcripts_all' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
 CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (`gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT, `gibbonSchoolYearTermID` INT(10) UNSIGNED NOT NULL, `ecclesiasticalName` VARCHAR(50) NOT NULL, `secularAlias` VARCHAR(50) NOT NULL, `notes` VARCHAR(255) DEFAULT NULL, PRIMARY KEY (`gibbonTermAliasID`), UNIQUE KEY `gibbonSchoolYearTermID` (`gibbonSchoolYearTermID`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;end
 ";
+
+//v1.0.6
+++$count;
+$sql[$count][0] = '1.0.6';
+$sql[$count][1] = "
+ALTER TABLE `gibbonStudentProgramHistory` DROP COLUMN `concentration`;end
+UPDATE gibbonAction SET description='Manage program start, switch, and graduation dates.' WHERE name='Manage Student Programs' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+";

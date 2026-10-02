@@ -21,6 +21,8 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
         'gender' => $_GET['gender'] ?? '',
     ];
 
+    $queryGateway = $container->get(RegistrarQueryGateway::class);
+
     echo '<h2>';
     echo __('Filter');
     echo '</h2>';
@@ -35,7 +37,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
 
     $row = $form->addRow();
         $row->addLabel('concentration', __('Concentration'));
-        $row->addSelect('concentration')->fromArray(getTranscriptsConcentrations())->placeholder()->selected($filters['concentration']);
+        $row->addSelect('concentration')->fromArray($queryGateway->selectLearningAreas())->placeholder()->selected($filters['concentration']);
 
     $row = $form->addRow();
         $row->addLabel('studentLevel', __('Student Level'));
@@ -53,8 +55,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
         $row->addSearchSubmit($session, __('Clear Filters'));
 
     echo $form->getOutput();
-
-    $queryGateway = $container->get(RegistrarQueryGateway::class);
 
     $criteria = $queryGateway->newQueryCriteria(true)
         ->sortBy(['surname', 'preferredName'])

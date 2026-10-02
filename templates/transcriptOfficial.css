@@ -106,9 +106,8 @@ body {
 }
 .col-grade { width: 7%; text-align: center; }
 .col-points { width: 9%; text-align: center; }
-.col-biblical { width: 19%; text-align: center; }
-.col-general { width: 16%; text-align: center; }
-.col-professional { width: 16%; text-align: center; }
+.col-credits { width: 10%; text-align: center; }
+.col-concentration { width: 41%; text-align: left; }
 
 .col-concentration-label {
     text-align: left;

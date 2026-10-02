@@ -18,11 +18,10 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
 
 $gibbonPersonID = (int)($_POST['gibbonPersonID'] ?? 0);
 $programType = $_POST['programType'] ?? '';
-$concentration = $_POST['concentration'] ?? '';
 $startDate = $_POST['startDate'] ?? '';
 $status = $_POST['status'] ?? '';
 
-if ($gibbonPersonID <= 0 || $programType == '' || $concentration == '' || $startDate == '' || $status == '') {
+if ($gibbonPersonID <= 0 || $programType == '' || $startDate == '' || $status == '') {
     header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
     exit;
 }
@@ -30,7 +29,6 @@ if ($gibbonPersonID <= 0 || $programType == '' || $concentration == '' || $start
 $data = [
     'gibbonPersonID' => $gibbonPersonID,
     'programType' => $programType,
-    'concentration' => $concentration,
     'studentLevel' => $_POST['studentLevel'] ?: null,
     'startDate' => Format::dateConvert($startDate),
     'switchDate' => !empty($_POST['switchDate']) ? Format::dateConvert($_POST['switchDate']) : null,

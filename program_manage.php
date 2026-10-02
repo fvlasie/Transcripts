@@ -67,7 +67,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         ->format(Format::using('name', ['', 'preferredName', 'surname', 'Student', true]));
 
     $table->addColumn('programType', __('Program'));
-    $table->addColumn('concentration', __('Concentration'));
     $table->addColumn('studentLevel', __('Level'));
     $table->addColumn('status', __('Status'));
     $table->addColumn('startDate', __('Start Date'))->format(Format::using('date', 'startDate'));

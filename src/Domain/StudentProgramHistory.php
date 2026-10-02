@@ -10,7 +10,6 @@ class StudentProgramHistory
     private ?int $id;
     private int $personId;
     private string $programType;
-    private string $concentration;
     private ?string $studentLevel;
     private string $startDate;
     private ?string $switchDate;
@@ -23,7 +22,6 @@ class StudentProgramHistory
         $this->id = isset($data['gibbonStudentProgramHistoryID']) ? (int)$data['gibbonStudentProgramHistoryID'] : null;
         $this->personId = (int)($data['gibbonPersonID'] ?? 0);
         $this->programType = $data['programType'] ?? 'BTh';
-        $this->concentration = $data['concentration'] ?? 'General';
         $this->studentLevel = $data['studentLevel'] ?? null;
         $this->startDate = $data['startDate'] ?? date('Y-m-d');
         $this->switchDate = $data['switchDate'] ?? null;
@@ -35,7 +33,6 @@ class StudentProgramHistory
     public function getId(): ?int { return $this->id; }
     public function getPersonId(): int { return $this->personId; }
     public function getProgramType(): string { return $this->programType; }
-    public function getConcentration(): string { return $this->concentration; }
     public function getStudentLevel(): ?string { return $this->studentLevel; }
     public function getStartDate(): string { return $this->startDate; }
     public function getSwitchDate(): ?string { return $this->switchDate; }
@@ -49,7 +46,6 @@ class StudentProgramHistory
             'gibbonStudentProgramHistoryID' => $this->id,
             'gibbonPersonID' => $this->personId,
             'programType' => $this->programType,
-            'concentration' => $this->concentration,
             'studentLevel' => $this->studentLevel,
             'startDate' => $this->startDate,
             'switchDate' => $this->switchDate,

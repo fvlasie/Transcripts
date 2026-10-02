@@ -82,6 +82,7 @@ class TranscriptGateway extends QueryableGateway
                 gibbonTermAlias.secularAlias,
                 gibbonCourse.name AS courseName,
                 gibbonCourse.nameShort AS courseCode,
+                gibbonDepartment.name AS learningArea,
                 gibbonCoursesAndClasses.externalCourseCode,
                 COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits,
                 gibbonCourse.courseLevel,
@@ -98,6 +99,7 @@ class TranscriptGateway extends QueryableGateway
                 )
             INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
             INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
+            LEFT JOIN gibbonDepartment ON gibbonDepartment.gibbonDepartmentID = gibbonCourse.gibbonDepartmentID AND gibbonDepartment.type = 'Learning Area'
             INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
             INNER JOIN gibbonReportingCycle ON gibbonReportingCycle.gibbonReportingCycleID = gibbonReportingValue.gibbonReportingCycleID
             LEFT JOIN gibbonSchoolYearTerm ON gibbonSchoolYearTerm.gibbonSchoolYearTermID = {$termMatch}
