@@ -20,6 +20,8 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         'success1' => __('Student program dates record updated successfully.'),
         'success2' => __('The program was added. It is now available here and in Tuition Billing.'),
         'success3' => __('The program was removed.'),
+        'success4' => __('The program was switched. The previous record is closed and the new one is active.'),
+        'error6' => __('The switch date must be after the current program started.'),
         'error3' => __('Enter a program name of up to 30 characters, without a comma.'),
         'error4' => __('That program is already in the list.'),
         'error5' => __('That program is used by a student record and was not removed.'),
@@ -87,6 +89,13 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
     $actionColumn->format(function ($row, $actions) {
         $actions->addAction('edit', __('Edit'))
             ->setURL('/modules/Transcripts/program_manage_edit.php');
+
+        if (($row['status'] ?? '') === 'Active') {
+            $actions->addAction('refresh', __('Switch'))
+                ->setURL('/modules/Transcripts/program_manage_edit.php')
+                ->addParam('switch', '1')
+                ->displayLabel();
+        }
     });
 
     echo $table->render($programs);

@@ -219,6 +219,48 @@ class StudentProgramGateway extends QueryableGateway
         ) > 0;
     }
 
+    /**
+     * Close an active program and open the next one on the same date. Billing treats that date as the
+     * first day of the new program, so the previous program covers terms that start before it.
+     *
+     * @throws \InvalidArgumentException invalid, date, or program
+     */
+    public function switchProgram(int $gibbonStudentProgramHistoryID, string $programType, string $switchDate, ?string $notes): void
+    {
+        $existing = $this->getByID($gibbonStudentProgramHistoryID);
+        if (empty($existing) || ($existing['status'] ?? '') !== 'Active') {
+            throw new \InvalidArgumentException('invalid');
+        }
+
+        $start = $existing['startDate'] ?? '';
+        if ($switchDate === '' || $switchDate === '0000-00-00' || $start === '' || $switchDate <= $start) {
+            throw new \InvalidArgumentException('date');
+        }
+
+        if (!$this->programTypeExists($programType)) {
+            throw new \InvalidArgumentException('program');
+        }
+
+        $this->db()->beginTransaction();
+        try {
+            $this->update($gibbonStudentProgramHistoryID, [
+                'status' => 'Switched',
+                'switchDate' => $switchDate,
+            ]);
+            $this->insert([
+                'gibbonPersonID' => $existing['gibbonPersonID'],
+                'programType' => $programType,
+                'startDate' => $switchDate,
+                'status' => 'Active',
+                'notes' => $notes !== '' ? $notes : null,
+            ]);
+            $this->db()->commit();
+        } catch (\Exception $e) {
+            $this->db()->rollBack();
+            throw $e;
+        }
+    }
+
     public function addProgramHistory(array $data): int
     {
         return $this->insert($data);
