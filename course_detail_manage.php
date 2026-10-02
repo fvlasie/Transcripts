@@ -1,5 +1,6 @@
 <?php
 
+use Gibbon\Domain\DataSet;
 use Gibbon\Forms\Form;
 use Gibbon\Forms\DatabaseFormFactory;
 use Gibbon\Services\Format;
@@ -53,19 +54,36 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/course_detail_
     $form->addHiddenValue('address', $session->get('address'));
     $form->addHiddenValue('gibbonSchoolYearID', $gibbonSchoolYearID);
 
-    $table = $form->addRow()->addTable()->setClass('smallIntBorder w-full colorOddEven');
-    $header = $table->addHeaderRow();
-    $header->addContent(__('Course'));
-    $header->addContent(__('Level'));
-    $header->addContent(__('Concentration'));
-
+    $courseRows = [];
     foreach ($courses as $course) {
-        $courseID = (int) $course['gibbonCourseID'];
-        $tr = $table->addRow();
-        $tr->addContent(htmlspecialchars($course['nameShort'].' '.$course['name']));
-        $tr->addSelect('courseLevel'.$courseID)->fromArray(getTranscriptsCourseLevels())->required()->selected($course['courseLevel']);
-        $tr->addSelect('gibbonDepartmentID'.$courseID)->fromArray($areaOptions)->placeholder()->selected($course['gibbonDepartmentID']);
+        $courseRows[] = [
+            'gibbonCourseID' => (int) $course['gibbonCourseID'],
+            'name' => $course['nameShort'].' '.$course['name'],
+            'courseLevel' => $course['courseLevel'],
+            'gibbonDepartmentID' => $course['gibbonDepartmentID'],
+        ];
     }
+
+    $factory = $form->getFactory();
+    $table = $form->addRow()->addDataTable('courseDetails')->withData(new DataSet($courseRows));
+    $table->setTitle(__('Course Details'));
+    $table->addColumn('name', __('Course'));
+    $table->addColumn('courseLevel', __('Level'))
+        ->format(function ($row) use ($factory) {
+            return $factory->createSelect('courseLevel'.$row['gibbonCourseID'])
+                ->fromArray(getTranscriptsCourseLevels())
+                ->required()
+                ->selected($row['courseLevel'])
+                ->getOutput();
+        });
+    $table->addColumn('concentration', __('Concentration'))
+        ->format(function ($row) use ($factory, $areaOptions) {
+            return $factory->createSelect('gibbonDepartmentID'.$row['gibbonCourseID'])
+                ->fromArray($areaOptions)
+                ->placeholder()
+                ->selected($row['gibbonDepartmentID'])
+                ->getOutput();
+        });
 
     $row = $form->addRow();
         $row->addFooter();

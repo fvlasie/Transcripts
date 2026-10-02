@@ -1,5 +1,6 @@
 <?php
 
+use Gibbon\Domain\DataSet;
 use Gibbon\Forms\Form;
 use Gibbon\Forms\DatabaseFormFactory;
 use Gibbon\Services\Format;
@@ -108,26 +109,48 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/student_mode_m
     $form->addHiddenValue('address', $session->get('address'));
     $form->addHiddenValue('gibbonSchoolYearID', $gibbonSchoolYearID);
 
-    $table = $form->addRow()->addTable()->setClass('smallIntBorder w-full colorOddEven');
-    $header = $table->addHeaderRow();
-    $header->addContent(__('Student'));
-    foreach ($terms as $term) {
-        $header->addContent(htmlspecialchars($term['name']));
-    }
-
+    $modeTableRows = [];
     $count = 0;
     foreach ($students as $student) {
         $personID = (int) $student['gibbonPersonID'];
-        $tr = $table->addRow();
-        $tr->addContent(Format::name('', $student['preferredName'], $student['surname'], 'Student', true)
-            .(!empty($student['yearGroup']) ? ' <span class="text-xs text-gray-600">'.htmlspecialchars($student['yearGroup']).'</span>' : ''))
-            ->append('<input type="hidden" name="gibbonPersonID'.$count.'" value="'.$personID.'">');
+        $termModes = [];
         foreach ($terms as $term) {
             $termID = (int) $term['gibbonSchoolYearTermID'];
-            $selected = $modes[$personID][$termID] ?? 'In-person';
-            $tr->addSelect('mode'.$count.'_'.$termID)->fromArray(getTranscriptsInstructionModes())->required()->selected($selected);
+            $termModes[$termID] = $modes[$personID][$termID] ?? 'In-person';
         }
+        $modeTableRows[] = [
+            'index' => $count,
+            'gibbonPersonID' => $personID,
+            'preferredName' => $student['preferredName'],
+            'surname' => $student['surname'],
+            'yearGroup' => (string) ($student['yearGroup'] ?? ''),
+            'termModes' => $termModes,
+        ];
         $count++;
+    }
+
+    $factory = $form->getFactory();
+    $table = $form->addRow()->addDataTable('studentMode')->withData(new DataSet($modeTableRows));
+    $table->setTitle(__('Student Mode'));
+    $table->addColumn('student', __('Student'))
+        ->format(function ($row) {
+            $name = Format::name('', $row['preferredName'], $row['surname'], 'Student', true);
+            if ($row['yearGroup'] !== '') {
+                $name .= ' <span class="text-xs text-gray-600">'.htmlspecialchars($row['yearGroup']).'</span>';
+            }
+
+            return $name.'<input type="hidden" name="gibbonPersonID'.$row['index'].'" value="'.$row['gibbonPersonID'].'">';
+        });
+    foreach ($terms as $term) {
+        $termID = (int) $term['gibbonSchoolYearTermID'];
+        $table->addColumn('term'.$termID, $term['name'])
+            ->format(function ($row) use ($factory, $termID) {
+                return $factory->createSelect('mode'.$row['index'].'_'.$termID)
+                    ->fromArray(getTranscriptsInstructionModes())
+                    ->required()
+                    ->selected($row['termModes'][$termID] ?? 'In-person')
+                    ->getOutput();
+            });
     }
 
     $form->addHiddenValue('count', $count);
