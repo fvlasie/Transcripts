@@ -82,7 +82,6 @@ function checkAndMigrateTranscriptsSchema($pdo)
     $columns = [
         'modeOfInstruction' => "ALTER TABLE `gibbonCourse` ADD COLUMN `modeOfInstruction` ENUM('In-person', 'Remote') NOT NULL DEFAULT 'In-person'",
         'courseLevel' => "ALTER TABLE `gibbonCourse` ADD COLUMN `courseLevel` ENUM('BTh', 'MTS', 'Certificate', 'Non-Degree') NOT NULL DEFAULT 'BTh'",
-        'credits' => "ALTER TABLE `gibbonCourse` ADD COLUMN `credits` DECIMAL(4,2) NOT NULL DEFAULT 0.00",
     ];
 
     foreach ($columns as $column => $sql) {

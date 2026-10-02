@@ -84,7 +84,7 @@ class TranscriptGateway extends QueryableGateway
                 gibbonCourse.nameShort AS courseCode,
                 gibbonDepartment.name AS learningArea,
                 gibbonCoursesAndClasses.externalCourseCode,
-                COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits,
+                COALESCE(gibbonCoursesAndClasses.credits, 3.00) AS credits,
                 gibbonCourse.courseLevel,
                 gibbonCourse.modeOfInstruction,
                 COALESCE(gibbonReportingCriteriaType.gibbonScaleID, gibbonReportingCriteria.gibbonScaleID) AS gibbonScaleID,
@@ -146,7 +146,7 @@ class TranscriptGateway extends QueryableGateway
                 gibbonCourse.name AS courseName,
                 gibbonCourse.nameShort AS courseCode,
                 gibbonCoursesAndClasses.externalCourseCode,
-                COALESCE(gibbonCoursesAndClasses.credits, NULLIF(gibbonCourse.credits, 0), 3.00) AS credits
+                COALESCE(gibbonCoursesAndClasses.credits, 3.00) AS credits
             FROM gibbonCourseClassPerson
             INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonCourseClassPerson.gibbonCourseClassID
             INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
