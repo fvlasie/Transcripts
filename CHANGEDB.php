@@ -25,3 +25,10 @@ $sql[$count][1] = "
 ALTER TABLE `gibbonStudentProgramHistory` DROP COLUMN `concentration`;end
 UPDATE gibbonAction SET description='Manage program start, switch, and graduation dates.' WHERE name='Manage Student Programs' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
 ";
+
+//v1.0.7
+++$count;
+$sql[$count][0] = '1.0.7';
+$sql[$count][1] = "
+ALTER TABLE `gibbonStudentProgramHistory` DROP COLUMN `studentLevel`;end
+";

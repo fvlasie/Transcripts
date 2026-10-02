@@ -5,7 +5,7 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.6';
+$version     = '1.0.7';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
 $category    = 'Assess';
@@ -15,7 +15,6 @@ $moduleTables = [
         `gibbonStudentProgramHistoryID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
         `gibbonPersonID` INT(10) UNSIGNED NOT NULL,
         `programType` ENUM('MTS', 'BTh', 'Certificate', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree') NOT NULL,
-        `studentLevel` ENUM('Freshman', 'Sophomore', 'Junior', 'Senior', 'M1', 'M2', 'M3') DEFAULT NULL,
         `startDate` DATE NOT NULL,
         `switchDate` DATE DEFAULT NULL,
         `graduationDate` DATE DEFAULT NULL,

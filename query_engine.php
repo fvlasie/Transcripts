@@ -16,7 +16,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
     $filters = [
         'programType' => $_GET['programType'] ?? '',
         'concentration' => $_GET['concentration'] ?? '',
-        'studentLevel' => $_GET['studentLevel'] ?? '',
         'modeOfInstruction' => $_GET['modeOfInstruction'] ?? '',
         'gender' => $_GET['gender'] ?? '',
     ];
@@ -38,10 +37,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
     $row = $form->addRow();
         $row->addLabel('concentration', __('Concentration'));
         $row->addSelect('concentration')->fromArray($queryGateway->selectLearningAreas())->placeholder()->selected($filters['concentration']);
-
-    $row = $form->addRow();
-        $row->addLabel('studentLevel', __('Student Level'));
-        $row->addSelect('studentLevel')->fromArray(getTranscriptsStudentLevels())->placeholder()->selected($filters['studentLevel']);
 
     $row = $form->addRow();
         $row->addLabel('modeOfInstruction', __('Mode of Instruction'));
@@ -85,7 +80,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
 
     $table->addColumn('programType', __('Program'));
     $table->addColumn('concentration', __('Concentration'));
-    $table->addColumn('studentLevel', __('Level'));
     $table->addColumn('course', __('Course'))
         ->format(function ($row) {
             $code = $row['courseCode'] ?? '';

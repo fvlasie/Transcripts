@@ -33,10 +33,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->required();
 
     $row = $form->addRow();
-        $row->addLabel('studentLevel', __('Student Level'));
-        $row->addSelect('studentLevel')->fromArray(getTranscriptsStudentLevels())->placeholder();
-
-    $row = $form->addRow();
         $row->addLabel('startDate', __('Start Date'))->description(__('Required'));
         $row->addDate('startDate')->required();
 

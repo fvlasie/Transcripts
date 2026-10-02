@@ -50,10 +50,6 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
             $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->required()->selected($program['programType']);
 
         $row = $form->addRow();
-            $row->addLabel('studentLevel', __('Student Level'));
-            $row->addSelect('studentLevel')->fromArray(getTranscriptsStudentLevels())->placeholder()->selected($program['studentLevel']);
-
-        $row = $form->addRow();
             $row->addLabel('startDate', __('Start Date'))->description(__('Required'));
             $row->addDate('startDate')->required()->setValue(Format::date($program['startDate']));
 

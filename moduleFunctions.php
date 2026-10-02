@@ -156,19 +156,6 @@ function getTranscriptsProgramTypes(): array
     ];
 }
 
-function getTranscriptsStudentLevels(): array
-{
-    return [
-        'Freshman' => 'Freshman',
-        'Sophomore' => 'Sophomore',
-        'Junior' => 'Junior',
-        'Senior' => 'Senior',
-        'M1' => 'M1',
-        'M2' => 'M2',
-        'M3' => 'M3',
-    ];
-}
-
 function getTranscriptsProgramStatuses(): array
 {
     return [

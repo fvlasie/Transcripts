@@ -29,7 +29,6 @@ if ($gibbonPersonID <= 0 || $programType == '' || $startDate == '' || $status ==
 $data = [
     'gibbonPersonID' => $gibbonPersonID,
     'programType' => $programType,
-    'studentLevel' => $_POST['studentLevel'] ?: null,
     'startDate' => Format::dateConvert($startDate),
     'switchDate' => !empty($_POST['switchDate']) ? Format::dateConvert($_POST['switchDate']) : null,
     'graduationDate' => !empty($_POST['graduationDate']) ? Format::dateConvert($_POST['graduationDate']) : null,

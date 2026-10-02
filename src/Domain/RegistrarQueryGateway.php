@@ -67,7 +67,6 @@ class RegistrarQueryGateway extends QueryableGateway
                 'gibbonPerson.gender',
                 'gibbonStudentProgramHistory.programType',
                 'gibbonDepartment.name AS concentration',
-                'gibbonStudentProgramHistory.studentLevel',
                 'gibbonStudentProgramHistory.startDate AS programStartDate',
                 'gibbonStudentProgramHistory.graduationDate',
                 'gibbonCourse.courseLevel',
@@ -97,11 +96,6 @@ class RegistrarQueryGateway extends QueryableGateway
                 return $query
                     ->where('gibbonDepartment.name = :concentration')
                     ->bindValue('concentration', $concentration);
-            },
-            'studentLevel' => function ($query, $studentLevel) {
-                return $query
-                    ->where('gibbonStudentProgramHistory.studentLevel = :studentLevel')
-                    ->bindValue('studentLevel', $studentLevel);
             },
             'modeOfInstruction' => function ($query, $modeOfInstruction) {
                 return $query
