@@ -5,7 +5,7 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.7';
+$version     = '1.0.8';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
 $category    = 'Assess';
@@ -14,7 +14,7 @@ $moduleTables = [
     "CREATE TABLE IF NOT EXISTS `gibbonStudentProgramHistory` (
         `gibbonStudentProgramHistoryID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
         `gibbonPersonID` INT(10) UNSIGNED NOT NULL,
-        `programType` ENUM('MTS', 'BTh', 'Certificate', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree') NOT NULL,
+        `programType` VARCHAR(30) NOT NULL,
         `startDate` DATE NOT NULL,
         `switchDate` DATE DEFAULT NULL,
         `graduationDate` DATE DEFAULT NULL,
@@ -23,6 +23,16 @@ $moduleTables = [
         PRIMARY KEY (`gibbonStudentProgramHistoryID`),
         KEY `gibbonPersonID` (`gibbonPersonID`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
+    "CREATE TABLE IF NOT EXISTS `gibbonTranscriptProgram` (
+        `gibbonTranscriptProgramID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+        `name` VARCHAR(30) NOT NULL,
+        `sequenceNumber` INT NOT NULL DEFAULT 0,
+        PRIMARY KEY (`gibbonTranscriptProgramID`),
+        UNIQUE KEY `name` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
+    "INSERT IGNORE INTO `gibbonTranscriptProgram` (`name`, `sequenceNumber`) VALUES ('MTS', 1), ('BTh', 2), ('Certificate', 3), ('Iconography', 4), ('Iconology', 5), ('Gap-Year', 6), ('Non-Degree', 7);",
 
     "CREATE TABLE IF NOT EXISTS `gibbonTermAlias` (
         `gibbonTermAliasID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,

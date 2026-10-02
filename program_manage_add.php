@@ -33,7 +33,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
 
     $row = $form->addRow();
         $row->addLabel('programType', __('Program Type'));
-        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->required();
+        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes($pdo))->required();
 
     $row = $form->addRow();
         $row->addLabel('startDate', __('Start Date'))->description($suggested['startSource'] !== '' ? $suggested['startSource'] : __('Required'));

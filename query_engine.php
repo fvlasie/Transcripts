@@ -32,7 +32,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/query_engine.p
 
     $row = $form->addRow();
         $row->addLabel('programType', __('Program Type'));
-        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes())->placeholder()->selected($filters['programType']);
+        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes($pdo))->placeholder()->selected($filters['programType']);
 
     $row = $form->addRow();
         $row->addLabel('concentration', __('Concentration'));

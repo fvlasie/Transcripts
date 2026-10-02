@@ -96,9 +96,27 @@ function checkAndMigrateTranscriptsSchema($pdo)
     }
 
     try {
-        $pdo->statement("ALTER TABLE `gibbonStudentProgramHistory` MODIFY COLUMN `programType` ENUM('MTS', 'BTh', 'Certificate', 'Iconography', 'Iconology', 'Gap-Year', 'Non-Degree') NOT NULL");
+        $pdo->statement("CREATE TABLE IF NOT EXISTS `gibbonTranscriptProgram` (
+            `gibbonTranscriptProgramID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(30) NOT NULL,
+            `sequenceNumber` INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (`gibbonTranscriptProgramID`),
+            UNIQUE KEY `name` (`name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $existingPrograms = (int) $pdo->selectOne('SELECT COUNT(*) FROM gibbonTranscriptProgram');
+        if ($existingPrograms === 0) {
+            $sequence = 0;
+            foreach (array_keys(getTranscriptsProgramTypeDefaults()) as $programName) {
+                $sequence++;
+                $pdo->insert(
+                    'INSERT INTO gibbonTranscriptProgram (name, sequenceNumber) VALUES (:name, :sequenceNumber)',
+                    ['name' => $programName, 'sequenceNumber' => $sequence]
+                );
+            }
+        }
+        $pdo->statement("ALTER TABLE `gibbonStudentProgramHistory` MODIFY COLUMN `programType` VARCHAR(30) NOT NULL");
     } catch (Exception $e) {
-        // Table may be unavailable, or the ENUM already includes Certificate.
+        // Table may be unavailable during install.
     }
 
     try {
@@ -142,7 +160,7 @@ function registerCoursesAndClassesAutoloader(string $absolutePath): void
     });
 }
 
-function getTranscriptsProgramTypes(): array
+function getTranscriptsProgramTypeDefaults(): array
 {
     return [
         'MTS' => 'MTS',
@@ -153,6 +171,28 @@ function getTranscriptsProgramTypes(): array
         'Gap-Year' => 'Gap-Year',
         'Non-Degree' => 'Non-Degree',
     ];
+}
+
+/**
+ * The program names shared by Transcripts and Tuition Billing. Reads gibbonTranscriptProgram,
+ * which Manage Student Programs edits. The built-in names are used only before that table exists.
+ */
+function getTranscriptsProgramTypes($pdo = null): array
+{
+    if ($pdo !== null) {
+        try {
+            $rows = $pdo->select('SELECT name FROM gibbonTranscriptProgram ORDER BY sequenceNumber, name')->fetchAll();
+            if (!empty($rows)) {
+                $names = array_column($rows, 'name');
+
+                return array_combine($names, $names);
+            }
+        } catch (Exception $e) {
+            // Table is created by the module update.
+        }
+    }
+
+    return getTranscriptsProgramTypeDefaults();
 }
 
 function getTranscriptsProgramStatuses(): array

@@ -32,3 +32,12 @@ $sql[$count][0] = '1.0.7';
 $sql[$count][1] = "
 ALTER TABLE `gibbonStudentProgramHistory` DROP COLUMN `studentLevel`;end
 ";
+
+//v1.0.8
+++$count;
+$sql[$count][0] = '1.0.8';
+$sql[$count][1] = "
+CREATE TABLE IF NOT EXISTS `gibbonTranscriptProgram` (`gibbonTranscriptProgramID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT, `name` VARCHAR(30) NOT NULL, `sequenceNumber` INT NOT NULL DEFAULT 0, PRIMARY KEY (`gibbonTranscriptProgramID`), UNIQUE KEY `name` (`name`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;end
+INSERT IGNORE INTO gibbonTranscriptProgram (name, sequenceNumber) VALUES ('MTS', 1), ('BTh', 2), ('Certificate', 3), ('Iconography', 4), ('Iconology', 5), ('Gap-Year', 6), ('Non-Degree', 7);end
+ALTER TABLE `gibbonStudentProgramHistory` MODIFY `programType` VARCHAR(30) NOT NULL;end
+";

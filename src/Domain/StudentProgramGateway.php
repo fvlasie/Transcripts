@@ -140,6 +140,85 @@ class StudentProgramGateway extends QueryableGateway
         return $suggested;
     }
 
+    /**
+     * Program names with how many student records use each one.
+     */
+    public function getProgramTypeUsage(): array
+    {
+        return $this->db()->select(
+            'SELECT gibbonTranscriptProgram.name, gibbonTranscriptProgram.sequenceNumber,
+                    COUNT(gibbonStudentProgramHistory.gibbonStudentProgramHistoryID) AS records
+             FROM gibbonTranscriptProgram
+             LEFT JOIN gibbonStudentProgramHistory ON gibbonStudentProgramHistory.programType = gibbonTranscriptProgram.name
+             GROUP BY gibbonTranscriptProgram.gibbonTranscriptProgramID, gibbonTranscriptProgram.name, gibbonTranscriptProgram.sequenceNumber
+             ORDER BY gibbonTranscriptProgram.sequenceNumber, gibbonTranscriptProgram.name'
+        )->fetchAll() ?: [];
+    }
+
+    /**
+     * @throws \InvalidArgumentException invalid or duplicate
+     */
+    public function programTypeExists(string $name): bool
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return false;
+        }
+
+        $existing = $this->db()->selectOne(
+            'SELECT name FROM gibbonTranscriptProgram WHERE name = :name',
+            ['name' => $name]
+        );
+
+        return !empty($existing);
+    }
+
+    public function addProgramType(string $name): void
+    {
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name) > 30 || strpos($name, ',') !== false) {
+            throw new \InvalidArgumentException('invalid');
+        }
+
+        $existing = $this->db()->selectOne(
+            'SELECT name FROM gibbonTranscriptProgram WHERE name = :name',
+            ['name' => $name]
+        );
+        if (!empty($existing)) {
+            throw new \InvalidArgumentException('duplicate');
+        }
+
+        $sequence = (int) $this->db()->selectOne('SELECT COALESCE(MAX(sequenceNumber), 0) + 1 FROM gibbonTranscriptProgram');
+        $this->db()->insert(
+            'INSERT INTO gibbonTranscriptProgram (name, sequenceNumber) VALUES (:name, :sequenceNumber)',
+            ['name' => $name, 'sequenceNumber' => $sequence]
+        );
+    }
+
+    /**
+     * Removes a program name that no student record uses. Returns false when it is in use or missing.
+     */
+    public function deleteProgramType(string $name): bool
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return false;
+        }
+
+        $used = (int) $this->db()->selectOne(
+            'SELECT COUNT(*) FROM gibbonStudentProgramHistory WHERE programType = :name',
+            ['name' => $name]
+        );
+        if ($used > 0) {
+            return false;
+        }
+
+        return $this->db()->delete(
+            'DELETE FROM gibbonTranscriptProgram WHERE name = :name',
+            ['name' => $name]
+        ) > 0;
+    }
+
     public function addProgramHistory(array $data): int
     {
         return $this->insert($data);

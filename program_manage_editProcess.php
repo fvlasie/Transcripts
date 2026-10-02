@@ -23,13 +23,13 @@ $startDate = $_POST['startDate'] ?? '';
 $status = $_POST['status'] ?? '';
 $filterGibbonPersonID = (int)($_POST['filterGibbonPersonID'] ?? 0);
 
-if ($gibbonStudentProgramHistoryID <= 0 || $programType == '' || $startDate == '' || $status == '') {
+$programGateway = $container->get(StudentProgramGateway::class);
+if ($gibbonStudentProgramHistoryID <= 0 || $programType == '' || $startDate == '' || $status == '' || !$programGateway->programTypeExists($programType)) {
     header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
     exit;
 }
 
 try {
-    $programGateway = $container->get(StudentProgramGateway::class);
     $existing = $programGateway->getByID($gibbonStudentProgramHistoryID);
 
     if (empty($existing)) {
