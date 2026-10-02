@@ -29,7 +29,7 @@ if (empty($highestAction)) {
 
 $gibbonSchoolYearID = (int)$session->get('gibbonSchoolYearID');
 $gibbonPersonIDViewer = (int)$session->get('gibbonPersonID');
-$gibbonPersonID = ($highestAction === 'Generate Transcripts_myTranscript')
+$gibbonPersonID = ($highestAction === 'Transcripts_myTranscript')
     ? $gibbonPersonIDViewer
     : (int)($_GET['gibbonPersonID'] ?? 0);
 $gibbonStudentProgramHistoryID = (int)($_GET['gibbonStudentProgramHistoryID'] ?? 0);

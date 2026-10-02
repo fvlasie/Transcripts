@@ -8,7 +8,7 @@ use Gibbon\Module\Transcripts\Domain\TranscriptGateway;
 require_once __DIR__.'/moduleFunctions.php';
 
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_cleanup.php') == false
-    || getTranscriptViewAction($guid, $connection2) !== 'Generate Transcripts_all') {
+    || getTranscriptViewAction($guid, $connection2) !== 'Transcripts_all') {
     $page->addError(__('You do not have access to this action.'));
 } else {
     $page->breadcrumbs

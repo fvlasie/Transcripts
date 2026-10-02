@@ -335,13 +335,13 @@ function getTranscriptAccessDenialReason($pdo, string $highestAction, int $gibbo
         return __('No student was selected.');
     }
 
-    if ($highestAction === 'Generate Transcripts_myTranscript') {
+    if ($highestAction === 'Transcripts_myTranscript') {
         return $gibbonPersonIDViewer === $gibbonPersonIDStudent
             ? null
             : __('You can only view your own transcript.');
     }
 
-    if ($highestAction === 'Generate Transcripts_myStudents') {
+    if ($highestAction === 'Transcripts_myStudents') {
         $students = getTeacherStudentOptions($pdo, $gibbonSchoolYearID, $gibbonPersonIDViewer);
 
         return isset($students[$gibbonPersonIDStudent])
@@ -349,7 +349,7 @@ function getTranscriptAccessDenialReason($pdo, string $highestAction, int $gibbo
             : __('You can only view transcripts for current students in the classes you teach this school year.');
     }
 
-    if ($highestAction === 'Generate Transcripts_all') {
+    if ($highestAction === 'Transcripts_all') {
         $person = $pdo->selectOne(
             "SELECT gibbonPersonID,
                 EXISTS (SELECT 1 FROM gibbonStudentEnrolment WHERE gibbonStudentEnrolment.gibbonPersonID=gibbonPerson.gibbonPersonID)

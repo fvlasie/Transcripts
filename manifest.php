@@ -5,10 +5,10 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.8';
+$version     = '1.0.9';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
-$category    = 'Assess';
+$category    = 'Registrar';
 
 $moduleTables = [
     "CREATE TABLE IF NOT EXISTS `gibbonStudentProgramHistory` (
@@ -52,9 +52,9 @@ $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`,
 $gibbonSetting[] = "INSERT INTO `gibbonSetting` (`scope`, `name`, `nameDisplay`, `description`, `value`) VALUES ('Transcripts', 'registrarGibbonPersonID', 'Registrar User', 'Gibbon user who may generate official signed transcripts.', '');";
 
 $actionRows[] = [
-    'name'                      => 'Generate Transcripts_all',
+    'name'                      => 'Transcripts_all',
     'precedence'                => '3',
-    'category'                  => 'Transcripts',
+    'category'                  => 'Registrar',
     'description'               => 'View and export transcripts for any student.',
     'URLList'                   => 'transcripts_view.php, transcript_print.php, transcripts_gradeAjax.php, transcripts_cleanup.php',
     'entryURL'                  => 'transcripts_view.php',
@@ -70,9 +70,9 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Generate Transcripts_myStudents',
+    'name'                      => 'Transcripts_myStudents',
     'precedence'                => '2',
-    'category'                  => 'Transcripts',
+    'category'                  => 'Registrar',
     'description'               => 'View and export transcripts for students in your classes.',
     'URLList'                   => 'transcripts_view.php, transcript_print.php',
     'entryURL'                  => 'transcripts_view.php',
@@ -88,9 +88,9 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Generate Transcripts_myTranscript',
+    'name'                      => 'Transcripts_myTranscript',
     'precedence'                => '1',
-    'category'                  => 'Transcripts',
+    'category'                  => 'Registrar',
     'description'               => 'View and export your own transcript.',
     'URLList'                   => 'transcripts_view.php, transcript_print.php',
     'entryURL'                  => 'transcripts_view.php',
@@ -106,9 +106,9 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Manage Student Programs',
+    'name'                      => 'Program Dates Management',
     'precedence'                => '2',
-    'category'                  => 'Registrar Admin',
+    'category'                  => 'Registrar',
     'description'               => 'Manage program start, switch, and graduation dates.',
     'URLList'                   => 'program_manage.php, program_manageProcess.php, program_manage_add.php, program_manage_edit.php, program_manage_editProcess.php',
     'entryURL'                  => 'program_manage.php',
@@ -124,9 +124,9 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Advanced Registrar Reports',
+    'name'                      => 'Registrar Reports',
     'precedence'                => '3',
-    'category'                  => 'Reports',
+    'category'                  => 'Registrar',
     'description'               => 'Filter and sort student records across term, program, mode of instruction, gender, level, and grade ranges.',
     'URLList'                   => 'query_engine.php',
     'entryURL'                  => 'query_engine.php',
@@ -142,9 +142,9 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Manage Transcript Template',
+    'name'                      => 'Transcript Template',
     'precedence'                => '4',
-    'category'                  => 'Registrar Admin',
+    'category'                  => 'Registrar',
     'description'               => 'Upload and configure the official PDF transcript template.',
     'URLList'                   => 'template_manage.php, template_manageProcess.php',
     'entryURL'                  => 'template_manage.php',

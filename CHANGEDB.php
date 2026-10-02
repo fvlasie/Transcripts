@@ -41,3 +41,17 @@ CREATE TABLE IF NOT EXISTS `gibbonTranscriptProgram` (`gibbonTranscriptProgramID
 INSERT IGNORE INTO gibbonTranscriptProgram (name, sequenceNumber) VALUES ('MTS', 1), ('BTh', 2), ('Certificate', 3), ('Iconography', 4), ('Iconology', 5), ('Gap-Year', 6), ('Non-Degree', 7);end
 ALTER TABLE `gibbonStudentProgramHistory` MODIFY `programType` VARCHAR(30) NOT NULL;end
 ";
+
+//v1.0.9
+++$count;
+$sql[$count][0] = '1.0.9';
+$sql[$count][1] = "
+UPDATE gibbonModule SET category='Registrar' WHERE name='Transcripts';end
+UPDATE gibbonAction SET name='Transcripts_all', category='Registrar' WHERE name='Generate Transcripts_all' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonAction SET name='Transcripts_myStudents', category='Registrar' WHERE name='Generate Transcripts_myStudents' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonAction SET name='Transcripts_myTranscript', category='Registrar' WHERE name='Generate Transcripts_myTranscript' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonAction SET name='Program Dates Management', category='Registrar' WHERE name='Manage Student Programs' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonAction SET name='Registrar Reports', category='Registrar' WHERE name='Advanced Registrar Reports' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonAction SET name='Transcript Template', category='Registrar' WHERE name='Manage Transcript Template' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+UPDATE gibbonSetting SET value=CONCAT(value, ',Registrar') WHERE scope='System' AND name='mainMenuCategoryOrder' AND FIND_IN_SET('Registrar', value)=0;end
+";

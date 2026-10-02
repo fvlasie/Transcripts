@@ -22,7 +22,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
         $page->breadcrumbs->add(__('Transcripts'));
 
         $page->return->addReturns([
-            'error2' => __('The official transcript PDF could not be generated. Upload page backgrounds in Manage Transcript Template.'),
+            'error2' => __('The official transcript PDF could not be generated. Upload page backgrounds in Transcript Template.'),
         ]);
 
         $transcriptGateway = $container->get(TranscriptGateway::class);
@@ -30,13 +30,13 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
         $transcriptService = new TranscriptService($transcriptGateway, $programGateway);
         $settingGateway = $container->get(\Gibbon\Domain\System\SettingGateway::class);
         $isOfficial = canGenerateOfficialTranscript($guid, $connection2, $settingGateway);
-        $canEdit = $highestAction === 'Generate Transcripts_all';
+        $canEdit = $highestAction === 'Transcripts_all';
 
         $gibbonSchoolYearID = (int)$session->get('gibbonSchoolYearID');
         $gibbonPersonIDViewer = (int)$session->get('gibbonPersonID');
         $gibbonPersonID = '';
 
-        if ($highestAction === 'Generate Transcripts_all') {
+        if ($highestAction === 'Transcripts_all') {
             $gibbonPersonID = $_GET['gibbonPersonID'] ?? '';
 
             echo '<h2>';
@@ -57,7 +57,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
             echo $form->getOutput();
 
             echo '<div class="linkTop"><a href="'.$session->get('absoluteURL').'/index.php?q=/modules/'.$session->get('module').'/transcripts_cleanup.php">'.__('Grade Data Cleanup Report').'</a></div>';
-        } elseif ($highestAction === 'Generate Transcripts_myStudents') {
+        } elseif ($highestAction === 'Transcripts_myStudents') {
             $studentOptions = getTeacherStudentOptions($pdo, $gibbonSchoolYearID, $gibbonPersonIDViewer);
             $gibbonPersonID = $_GET['gibbonPersonID'] ?? '';
 
@@ -92,7 +92,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
             : null;
 
         if (empty($gibbonPersonID)) {
-            if ($highestAction !== 'Generate Transcripts_myStudents' || !empty($studentOptions ?? [])) {
+            if ($highestAction !== 'Transcripts_myStudents' || !empty($studentOptions ?? [])) {
                 $page->addMessage(__('Select a student to view their transcript.'));
             }
         } elseif ($denialReason !== null) {

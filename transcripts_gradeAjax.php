@@ -32,7 +32,7 @@ if (!$container->get(TokenHandler::class)->validateCsrfToken()) {
 }
 
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_gradeAjax.php') == false
-    || getTranscriptViewAction($guid, $connection2) !== 'Generate Transcripts_all') {
+    || getTranscriptViewAction($guid, $connection2) !== 'Transcripts_all') {
     $fail(__('Your request failed because you do not have access to this action.'), 403);
 }
 
@@ -41,7 +41,7 @@ $gibbonPersonIDViewer = (int)$session->get('gibbonPersonID');
 $gibbonPersonID = (int)($_POST['gibbonPersonID'] ?? 0);
 $action = $_POST['action'] ?? '';
 
-$denialReason = getTranscriptAccessDenialReason($pdo, 'Generate Transcripts_all', $gibbonPersonIDViewer, $gibbonPersonID, (int)$session->get('gibbonSchoolYearID'));
+$denialReason = getTranscriptAccessDenialReason($pdo, 'Transcripts_all', $gibbonPersonIDViewer, $gibbonPersonID, (int)$session->get('gibbonSchoolYearID'));
 if ($denialReason !== null) {
     $fail($denialReason, 403);
 }
