@@ -27,6 +27,13 @@ class TranscriptGateway extends QueryableGateway
         $sql = $this->getGradeRecordSql().'
             WHERE gibbonReportingValue.gibbonPersonIDStudent = :gibbonPersonID
             AND (gibbonReportingValue.gibbonScaleGradeID IS NOT NULL OR TRIM(COALESCE(gibbonReportingValue.value, \'\')) <> \'\')
+            AND NOT EXISTS (
+                SELECT 1 FROM gibbonCourseClassPerson AS nonReportable
+                WHERE nonReportable.gibbonPersonID = gibbonReportingValue.gibbonPersonIDStudent
+                AND nonReportable.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+                AND nonReportable.role LIKE \'Student%\'
+                AND nonReportable.reportable = \'N\'
+            )
             ORDER BY gibbonSchoolYear.sequenceNumber ASC,
                      COALESCE(gibbonSchoolYearTerm.sequenceNumber, gibbonReportingCycle.sequenceNumber) ASC,
                      gibbonCourse.nameShort ASC,
@@ -43,6 +50,13 @@ class TranscriptGateway extends QueryableGateway
             WHERE gibbonReportingValue.gibbonPersonIDStudent = :gibbonPersonID
             AND gibbonReportingValue.gibbonReportingCriteriaID = :gibbonReportingCriteriaID
             AND gibbonReportingValue.gibbonCourseClassID = :gibbonCourseClassID
+            AND NOT EXISTS (
+                SELECT 1 FROM gibbonCourseClassPerson AS nonReportable
+                WHERE nonReportable.gibbonPersonID = gibbonReportingValue.gibbonPersonIDStudent
+                AND nonReportable.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+                AND nonReportable.role LIKE \'Student%\'
+                AND nonReportable.reportable = \'N\'
+            )
             LIMIT 1';
 
         $row = $this->db()->select($sql, [
@@ -98,6 +112,7 @@ class TranscriptGateway extends QueryableGateway
                     OR (gibbonReportingCriteriaType.valueType = 'Text' AND UPPER(TRIM(gibbonReportingValue.value)) IN ".self::PASS_FAIL_SQL.")
                 )
             INNER JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonReportingValue.gibbonCourseClassID
+                AND gibbonCourseClass.reportable = 'Y'
             INNER JOIN gibbonCourse ON gibbonCourse.gibbonCourseID = gibbonCourseClass.gibbonCourseID
             LEFT JOIN gibbonDepartment ON gibbonDepartment.gibbonDepartmentID = gibbonCourse.gibbonDepartmentID AND gibbonDepartment.type = 'Learning Area'
             INNER JOIN gibbonSchoolYear ON gibbonSchoolYear.gibbonSchoolYearID = gibbonCourse.gibbonSchoolYearID
@@ -154,6 +169,8 @@ class TranscriptGateway extends QueryableGateway
             LEFT JOIN gibbonCoursesAndClasses ON gibbonCoursesAndClasses.courseCode = gibbonCourse.nameShort
             WHERE gibbonCourseClassPerson.gibbonPersonID = :gibbonPersonID
             AND gibbonCourseClassPerson.role = 'Student'
+            AND gibbonCourseClassPerson.reportable = 'Y'
+            AND gibbonCourseClass.reportable = 'Y'
             AND NOT EXISTS (
                 SELECT 1
                 FROM gibbonReportingValue AS rv
@@ -257,16 +274,20 @@ class TranscriptGateway extends QueryableGateway
 
     public function isStudentLinkedToClass(int $gibbonPersonID, int $gibbonCourseClassID): bool
     {
-        $sql = "SELECT (
-                    EXISTS (SELECT 1 FROM gibbonCourseClassPerson WHERE gibbonPersonID = :personEnrolment AND gibbonCourseClassID = :classEnrolment AND role LIKE 'Student%')
-                    OR EXISTS (SELECT 1 FROM gibbonReportingValue WHERE gibbonPersonIDStudent = :personValue AND gibbonCourseClassID = :classValue)
+        $sql = "SELECT EXISTS (
+                    SELECT 1
+                    FROM gibbonCourseClassPerson
+                    JOIN gibbonCourseClass ON gibbonCourseClass.gibbonCourseClassID = gibbonCourseClassPerson.gibbonCourseClassID
+                    WHERE gibbonCourseClassPerson.gibbonPersonID = :personEnrolment
+                    AND gibbonCourseClassPerson.gibbonCourseClassID = :classEnrolment
+                    AND gibbonCourseClassPerson.role LIKE 'Student%'
+                    AND gibbonCourseClassPerson.reportable = 'Y'
+                    AND gibbonCourseClass.reportable = 'Y'
                 ) AS linked";
 
         return (bool)$this->db()->selectOne($sql, [
             'personEnrolment' => $gibbonPersonID,
             'classEnrolment' => $gibbonCourseClassID,
-            'personValue' => $gibbonPersonID,
-            'classValue' => $gibbonCourseClassID,
         ]);
     }
 
