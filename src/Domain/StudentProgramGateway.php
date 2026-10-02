@@ -73,9 +73,9 @@ class StudentProgramGateway extends QueryableGateway
 
     /**
      * Dates to offer on a new program record. Start is the day after a previous program ended, else the
-     * first day of the student's earliest school year, else the start date on their person record, else
-     * the current school year's first day. Graduation is the last day of their final school year, and only
-     * when they are not enrolled in the current year. Both are suggestions; the form leaves them editable.
+     * first day of the earliest school year, else the start date on the person record, else the current
+     * school year's first day. Graduation is the last day of the final school year, and only when the
+     * student is not enrolled in the current year. Both are suggestions; the form leaves them editable.
      *
      * @return array{startDate: ?string, graduationDate: ?string, startSource: string, graduationSource: string}
      */
@@ -107,10 +107,10 @@ class StudentProgramGateway extends QueryableGateway
 
         if ($previousEnd !== null) {
             $suggested['startDate'] = date('Y-m-d', strtotime($previousEnd.' +1 day'));
-            $suggested['startSource'] = __('The day after their previous program ended.');
+            $suggested['startSource'] = __('The day after the previous program ended.');
         } elseif (!empty($enrolment['firstDay']) && $enrolment['firstDay'] !== '0000-00-00') {
             $suggested['startDate'] = $enrolment['firstDay'];
-            $suggested['startSource'] = __('The first day of their earliest school year.');
+            $suggested['startSource'] = __('The first day of the earliest school year.');
         } else {
             $personStart = $this->db()->selectOne(
                 'SELECT dateStart FROM gibbonPerson WHERE gibbonPersonID = :gibbonPersonID',
@@ -118,7 +118,7 @@ class StudentProgramGateway extends QueryableGateway
             );
             if (!empty($personStart) && $personStart !== '0000-00-00') {
                 $suggested['startDate'] = $personStart;
-                $suggested['startSource'] = __('The start date on their person record.');
+                $suggested['startSource'] = __('The start date on the person record.');
             }
         }
 
@@ -134,7 +134,7 @@ class StudentProgramGateway extends QueryableGateway
 
         if (!empty($enrolment['lastDay']) && $enrolment['lastDay'] !== '0000-00-00' && (int)($enrolment['currentYears'] ?? 0) === 0) {
             $suggested['graduationDate'] = $enrolment['lastDay'];
-            $suggested['graduationSource'] = __('The last day of their final school year. They are not enrolled in the current year.');
+            $suggested['graduationSource'] = __('The last day of the final school year. This student is not enrolled in the current year.');
         }
 
         return $suggested;
