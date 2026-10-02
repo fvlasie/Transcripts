@@ -214,6 +214,16 @@ function getTranscriptsInstructionModes(): array
     ];
 }
 
+function getTranscriptsCourseLevels(): array
+{
+    return [
+        'BTh' => 'BTh',
+        'MTS' => 'MTS',
+        'Certificate' => 'Certificate',
+        'Non-Degree' => 'Non-Degree',
+    ];
+}
+
 function renderGpaBadge($gpa)
 {
     $class = 'success';

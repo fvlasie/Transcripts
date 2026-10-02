@@ -124,13 +124,20 @@ class TranscriptRecord
             return $this->normalizeSecularAlias($this->secularAlias);
         }
 
+        $fallback = self::fallbackSecularAlias($this->termName);
+
+        return $fallback !== '' ? $fallback : null;
+    }
+
+    private static function fallbackSecularAlias(string $termName): string
+    {
         $defaults = [
             'Nativity' => 'Fall',
             'Pascha' => 'Spring',
             'Pentecost' => 'Summer',
         ];
 
-        return $defaults[$this->termName] ?? null;
+        return $defaults[$termName] ?? '';
     }
 
     private function normalizeSecularAlias(string $alias): string

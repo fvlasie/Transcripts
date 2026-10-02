@@ -22,7 +22,8 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
         $page->breadcrumbs->add(__('Transcripts'));
 
         $page->return->addReturns([
-            'error2' => __('The official transcript PDF could not be generated. Upload page backgrounds in Transcript Template.'),
+            'error2' => __('The official transcript PDF could not be generated because the page background is missing. Upload it in Transcript Template.'),
+            'error3' => __('The official transcript PDF could not be generated.'),
         ]);
 
         $transcriptGateway = $container->get(TranscriptGateway::class);

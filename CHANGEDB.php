@@ -63,3 +63,12 @@ $sql[$count][1] = "
 UPDATE gibbonModule SET category='Assess' WHERE name='Transcripts';end
 UPDATE gibbonSetting SET value=TRIM(BOTH ',' FROM REPLACE(CONCAT(',', value, ','), ',Registrar,', ',')) WHERE scope='System' AND name='mainMenuCategoryOrder' AND FIND_IN_SET('Registrar', value)>0;end
 ";
+
+//v1.0.11
+++$count;
+$sql[$count][0] = '1.0.11';
+$sql[$count][1] = "
+INSERT INTO gibbonAction (gibbonModuleID, name, precedence, category, description, URLList, entryURL, entrySidebar, menuShow, defaultPermissionAdmin, defaultPermissionTeacher, defaultPermissionStudent, defaultPermissionParent, defaultPermissionSupport, categoryPermissionStaff, categoryPermissionStudent, categoryPermissionParent, categoryPermissionOther)
+VALUES ((SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts'), 'Course Details', 5, 'Registrar', 'Set course level, mode of instruction, and concentration for a school year.', 'course_detail_manage.php, course_detail_manageProcess.php', 'course_detail_manage.php', 'Y', 'Y', 'Y', 'N', 'N', 'N', 'N', 'Y', 'N', 'N', 'N');end
+INSERT INTO gibbonPermission (gibbonRoleID, gibbonActionID) VALUES ('001', (SELECT gibbonActionID FROM gibbonAction JOIN gibbonModule ON (gibbonAction.gibbonModuleID=gibbonModule.gibbonModuleID) WHERE gibbonModule.name='Transcripts' AND gibbonAction.name='Course Details'));end
+";

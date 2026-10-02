@@ -59,7 +59,7 @@ class TranscriptPdfService
         );
 
         if ($page1Background === null) {
-            throw new \RuntimeException(__('No page 1 PDF background has been uploaded.'));
+            throw new \RuntimeException('background');
         }
 
         if ($page2Background === null) {

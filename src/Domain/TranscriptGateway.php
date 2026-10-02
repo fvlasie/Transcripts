@@ -643,13 +643,15 @@ class TranscriptGateway extends QueryableGateway
     public function saveTermAlias(int $termID, string $ecclesiasticalName, string $secularAlias): bool
     {
         $sql = 'INSERT INTO gibbonTermAlias (gibbonSchoolYearTermID, ecclesiasticalName, secularAlias)
-                VALUES (:termID, :ecc, :sec)
-                ON DUPLICATE KEY UPDATE ecclesiasticalName = :ecc, secularAlias = :sec';
+                VALUES (:termID, :ecclesiasticalName, :secularAlias)
+                ON DUPLICATE KEY UPDATE ecclesiasticalName = :ecclesiasticalNameUpdate, secularAlias = :secularAliasUpdate';
 
         return $this->db()->statement($sql, [
             'termID' => $termID,
-            'ecc' => $ecclesiasticalName,
-            'sec' => $secularAlias,
+            'ecclesiasticalName' => $ecclesiasticalName,
+            'secularAlias' => $secularAlias,
+            'ecclesiasticalNameUpdate' => $ecclesiasticalName,
+            'secularAliasUpdate' => $secularAlias,
         ]);
     }
 }

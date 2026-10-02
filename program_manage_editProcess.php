@@ -37,7 +37,13 @@ if (($_POST['intent'] ?? '') === 'switchProgram') {
         );
         $redirect['return'] = 'success4';
     } catch (\InvalidArgumentException $e) {
-        $redirect['return'] = $e->getMessage() === 'date' ? 'error6' : 'error1';
+        $code = 'error1';
+        if ($e->getMessage() === 'date') {
+            $code = 'error6';
+        } elseif ($e->getMessage() === 'program') {
+            $code = 'error8';
+        }
+        $redirect['return'] = $code;
     } catch (Exception $e) {
         $redirect['return'] = 'error2';
     }
@@ -51,8 +57,26 @@ $programType = $_POST['programType'] ?? '';
 $startDate = $_POST['startDate'] ?? '';
 $status = $_POST['status'] ?? '';
 
-if ($gibbonStudentProgramHistoryID <= 0 || $programType == '' || $startDate == '' || $status == '' || !$programGateway->programTypeExists($programType)) {
+$editURL = Url::fromModuleRoute($moduleName, 'program_manage_edit.php')->withQueryParams([
+    'gibbonStudentProgramHistoryID' => $gibbonStudentProgramHistoryID,
+]);
+if ($filterGibbonPersonID > 0) {
+    $editURL = $editURL->withQueryParam('gibbonPersonID', $filterGibbonPersonID);
+}
+if ($gibbonStudentProgramHistoryID <= 0) {
     header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
+    exit;
+}
+if ($programType == '' || !$programGateway->programTypeExists($programType)) {
+    header('Location: '.$editURL->withQueryParam('return', 'error8'));
+    exit;
+}
+if ($startDate == '') {
+    header('Location: '.$editURL->withQueryParam('return', 'error9'));
+    exit;
+}
+if ($status == '') {
+    header('Location: '.$editURL->withQueryParam('return', 'error10'));
     exit;
 }
 
@@ -60,7 +84,7 @@ try {
     $existing = $programGateway->getByID($gibbonStudentProgramHistoryID);
 
     if (empty($existing)) {
-        header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
+        header('Location: '.$editURL->withQueryParam('return', 'error1'));
         exit;
     }
 
@@ -69,7 +93,7 @@ try {
     }
 
     if ($gibbonPersonID <= 0) {
-        header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
+        header('Location: '.$editURL->withQueryParam('return', 'error7'));
         exit;
     }
 
@@ -92,5 +116,9 @@ try {
 
     header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParams($redirectParams));
 } catch (Exception $e) {
-    header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error2'));
+    $fail = ['return' => 'error2'];
+    if ($filterGibbonPersonID > 0) {
+        $fail['gibbonPersonID'] = $filterGibbonPersonID;
+    }
+    header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParams($fail));
 }

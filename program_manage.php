@@ -25,6 +25,11 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         'error3' => __('Enter a program name of up to 30 characters, without a comma.'),
         'error4' => __('That program is already in the list.'),
         'error5' => __('That program is used by a student record and was not removed.'),
+        'error7' => __('Student is required.'),
+        'error8' => __('Program Type is required.'),
+        'error9' => __('Start Date is required.'),
+        'error10' => __('Status is required.'),
+        'error1' => __('The program record could not be saved. Check the student, program, start date, and status.'),
     ]);
 
     $programGateway = $container->get(StudentProgramGateway::class);

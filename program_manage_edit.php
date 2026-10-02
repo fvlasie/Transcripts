@@ -12,6 +12,14 @@ checkAndMigrateTranscriptsSchema($pdo);
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage.php') == false) {
     $page->addError(__('You do not have access to this action.'));
 } else {
+    $page->return->addReturns([
+        'error6' => __('The switch date must be after the current program started.'),
+        'error7' => __('Student is required.'),
+        'error8' => __('Program Type is required.'),
+        'error9' => __('Start Date is required.'),
+        'error10' => __('Status is required.'),
+        'error1' => __('The program record could not be saved. Check the student, program, start date, and status.'),
+    ]);
     $programGateway = $container->get(StudentProgramGateway::class);
     $gibbonStudentProgramHistoryID = (int)($_GET['gibbonStudentProgramHistoryID'] ?? 0);
     $program = $gibbonStudentProgramHistoryID > 0

@@ -27,7 +27,7 @@
                 </tr>
                 <?php if (!empty($layout['student']['identifier'])): ?>
                 <tr>
-                    <td class="label">Social Security/Passport Number:</td>
+                    <td class="label">Username:</td>
                     <td><?php echo htmlspecialchars($layout['student']['identifier']); ?></td>
                 </tr>
                 <?php endif; ?>

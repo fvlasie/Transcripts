@@ -74,7 +74,8 @@ try {
     echo $pdfContent;
     exit;
 } catch (Exception $e) {
-    $failPath = "{$returnPath}&gibbonPersonID={$gibbonPersonID}&return=error2";
+    $returnCode = $e->getMessage() === 'background' ? 'error2' : 'error3';
+    $failPath = "{$returnPath}&gibbonPersonID={$gibbonPersonID}&return={$returnCode}";
     if ($gibbonStudentProgramHistoryID > 0) {
         $failPath .= "&gibbonStudentProgramHistoryID={$gibbonStudentProgramHistoryID}";
     }

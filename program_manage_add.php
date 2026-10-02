@@ -11,6 +11,13 @@ checkAndMigrateTranscriptsSchema($pdo);
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage.php') == false) {
     $page->addError(__('You do not have access to this action.'));
 } else {
+    $page->return->addReturns([
+        'error7' => __('Student is required.'),
+        'error8' => __('Program Type is required.'),
+        'error9' => __('Start Date is required.'),
+        'error10' => __('Status is required.'),
+        'error1' => __('The program record could not be saved. Check the student, program, start date, and status.'),
+    ]);
     $filterGibbonPersonID = $_GET['gibbonPersonID'] ?? '';
     $suggested = $container->get(StudentProgramGateway::class)->suggestProgramDates((int)$filterGibbonPersonID);
     $backQuery = 'program_manage.php';
@@ -130,8 +137,8 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         $row->addSelectStudent('gibbonPersonID', $session->get('gibbonSchoolYearID'), ['allStudents' => true])->required()->placeholder()->selected($filterGibbonPersonID);
 
     $row = $form->addRow();
-        $row->addLabel('programType', __('Program Type'));
-        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes($pdo))->required();
+        $row->addLabel('programType', __('Program Type'))->description(__('Choose a program. Nothing is selected until you choose one.'));
+        $row->addSelect('programType')->fromArray(getTranscriptsProgramTypes($pdo))->required()->placeholder();
 
     $row = $form->addRow();
         $row->addLabel('startDate', __('Start Date'))->description($suggested['startSource'] !== '' ? $suggested['startSource'] : __('Required'));

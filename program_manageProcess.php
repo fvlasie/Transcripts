@@ -47,8 +47,30 @@ if ($intent === 'addCohort') {
     $status = $_POST['status'] ?? '';
 
     $programGateway = $container->get(StudentProgramGateway::class);
-    if ($gibbonSchoolYearID <= 0 || empty($personIDs) || $programType === '' || empty($startDate) || $status === '') {
-        header('Location: '.$listURL->withQueryParam('return', 'error1'));
+    $cohortURL = Url::fromModuleRoute($moduleName, 'program_manage_add.php')->withQueryParams([
+        'cohort' => '1',
+        'gibbonSchoolYearID' => $gibbonSchoolYearID,
+        'gibbonYearGroupID' => $gibbonYearGroupID,
+        'gender' => $gender,
+    ]);
+    if ($gibbonSchoolYearID <= 0) {
+        header('Location: '.$cohortURL->withQueryParam('return', 'error1'));
+        exit;
+    }
+    if (empty($personIDs)) {
+        header('Location: '.$cohortURL->withQueryParam('return', 'error7'));
+        exit;
+    }
+    if ($programType === '' || !$programGateway->programTypeExists($programType)) {
+        header('Location: '.$cohortURL->withQueryParam('return', 'error8'));
+        exit;
+    }
+    if (empty($startDate)) {
+        header('Location: '.$cohortURL->withQueryParam('return', 'error9'));
+        exit;
+    }
+    if ($status === '') {
+        header('Location: '.$cohortURL->withQueryParam('return', 'error10'));
         exit;
     }
 
@@ -63,7 +85,7 @@ if ($intent === 'addCohort') {
             $_POST['notes'] ?? null
         );
     } catch (\InvalidArgumentException $e) {
-        header('Location: '.$listURL->withQueryParam('return', 'error1'));
+        header('Location: '.$cohortURL->withQueryParam('return', 'error1'));
         exit;
     }
 
@@ -80,8 +102,25 @@ $startDate = $_POST['startDate'] ?? '';
 $status = $_POST['status'] ?? '';
 
 $programGateway = $container->get(StudentProgramGateway::class);
-if ($gibbonPersonID <= 0 || $programType == '' || $startDate == '' || $status == '' || !$programGateway->programTypeExists($programType)) {
-    header('Location: '.Url::fromModuleRoute($moduleName, 'program_manage.php')->withQueryParam('return', 'error1'));
+$filterGibbonPersonID = (int)($_POST['filterGibbonPersonID'] ?? 0);
+$addURL = Url::fromModuleRoute($moduleName, 'program_manage_add.php');
+if ($filterGibbonPersonID > 0) {
+    $addURL = $addURL->withQueryParam('gibbonPersonID', $filterGibbonPersonID);
+}
+if ($gibbonPersonID <= 0) {
+    header('Location: '.$addURL->withQueryParam('return', 'error7'));
+    exit;
+}
+if ($programType == '' || !$programGateway->programTypeExists($programType)) {
+    header('Location: '.$addURL->withQueryParam('return', 'error8'));
+    exit;
+}
+if ($startDate == '') {
+    header('Location: '.$addURL->withQueryParam('return', 'error9'));
+    exit;
+}
+if ($status == '') {
+    header('Location: '.$addURL->withQueryParam('return', 'error10'));
     exit;
 }
 
@@ -97,8 +136,6 @@ $data = [
 
 try {
     $programGateway->addProgramHistory($data);
-
-    $filterGibbonPersonID = (int)($_POST['filterGibbonPersonID'] ?? 0);
 
     $redirectParams = ['return' => 'success0'];
     if ($filterGibbonPersonID > 0) {
