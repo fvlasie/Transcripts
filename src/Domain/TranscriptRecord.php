@@ -44,7 +44,7 @@ class TranscriptRecord
         $this->isPassFail = !empty($data['isPassFail']);
         $this->numericGrade = is_numeric($data['numericGrade'] ?? null) ? (float)$data['numericGrade'] : null;
         if ($this->isPassFail) {
-            $this->gpaPoints = null;
+            $this->gpaPoints = $this->letterGrade === null ? null : ($this->isPass() ? 4.0 : 0.0);
         } else {
             $this->gpaPoints = is_numeric($data['gpaPoints'] ?? null) ? (float)$data['gpaPoints'] : $this->calculateGpaPoints();
         }
@@ -165,6 +165,14 @@ class TranscriptRecord
             return false;
         }
 
-        return $this->isPassFail ? strpos($letter, 'P') === 0 : $letter !== 'F';
+        return $this->isPassFail ? $this->isPass() : $letter !== 'F';
+    }
+
+    /**
+     * Pass/Fail grades are graded like an A (pass) or an F (fail) for GPA.
+     */
+    private function isPass(): bool
+    {
+        return strpos(strtoupper(trim((string)$this->letterGrade)), 'P') === 0;
     }
 }

@@ -181,7 +181,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/transcripts_vi
                     }
                     if (!empty($row['isPassFail'])) {
                         return htmlspecialchars($row['letterGrade'] ?? '-')
-                            .'<div class="text-xxs text-gray-600 mt-1">'.__('Pass/Fail, not in GPA. Edit in Write Reports.').'</div>'
+                            .'<div class="text-xxs text-gray-600 mt-1">'.__('Pass/Fail: a pass counts as A, a fail as F. Edit in Write Reports.').'</div>'
                             .renderTranscriptLastChanged($row);
                     }
 
