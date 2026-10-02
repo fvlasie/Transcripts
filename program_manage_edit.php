@@ -37,7 +37,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
     } else {
         $switching = ($_GET['switch'] ?? '') === '1';
         $page->breadcrumbs
-            ->add(__('Program Dates Management'), $backQuery)
+            ->add(__('Program Management'), $backQuery)
             ->add($switching ? __('Switch') : __('Edit'));
 
         $student = $container->get(UserGateway::class)->getByID($program['gibbonPersonID'], ['preferredName', 'surname']);

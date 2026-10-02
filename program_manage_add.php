@@ -32,7 +32,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
         $programGateway = $container->get(StudentProgramGateway::class);
 
         $page->breadcrumbs
-            ->add(__('Program Dates Management'), $backQuery)
+            ->add(__('Program Management'), $backQuery)
             ->add(__('Add Cohort'));
 
         echo '<h2>'.__('Filter').'</h2>';
@@ -124,7 +124,7 @@ if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage
     }
 
     $page->breadcrumbs
-        ->add(__('Program Dates Management'), $backQuery)
+        ->add(__('Program Management'), $backQuery)
         ->add(__('Add'));
 
     $form = Form::create('programAdd', $session->get('absoluteURL').'/modules/'.$session->get('module').'/program_manageProcess.php');

@@ -5,7 +5,7 @@ $name        = 'Transcripts';
 $description = 'Automated transcript generation and advanced registrar reporting.';
 $entryURL    = 'transcripts_view.php';
 $type        = 'Additional';
-$version     = '1.0.11';
+$version     = '1.0.12';
 $author      = 'SPOTS Development Team';
 $url         = 'https://spots.edu';
 $category    = 'Assess';
@@ -106,7 +106,7 @@ $actionRows[] = [
 ];
 
 $actionRows[] = [
-    'name'                      => 'Program Dates Management',
+    'name'                      => 'Program Management',
     'precedence'                => '2',
     'category'                  => 'Registrar',
     'description'               => 'Manage program start, switch, and graduation dates.',

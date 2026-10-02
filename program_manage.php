@@ -13,7 +13,7 @@ checkAndMigrateTranscriptsSchema($pdo);
 if (isActionAccessible($guid, $connection2, '/modules/Transcripts/program_manage.php') == false) {
     $page->addError(__('You do not have access to this action.'));
 } else {
-    $page->breadcrumbs->add(__('Program Dates Management'));
+    $page->breadcrumbs->add(__('Program Management'));
 
     $page->return->addReturns([
         'success0' => __('Student program dates record saved successfully.'),

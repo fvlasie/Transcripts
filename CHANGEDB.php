@@ -72,3 +72,10 @@ INSERT INTO gibbonAction (gibbonModuleID, name, precedence, category, descriptio
 VALUES ((SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts'), 'Course Details', 5, 'Registrar', 'Set course level, mode of instruction, and concentration for a school year.', 'course_detail_manage.php, course_detail_manageProcess.php', 'course_detail_manage.php', 'Y', 'Y', 'Y', 'N', 'N', 'N', 'N', 'Y', 'N', 'N', 'N');end
 INSERT INTO gibbonPermission (gibbonRoleID, gibbonActionID) VALUES ('001', (SELECT gibbonActionID FROM gibbonAction JOIN gibbonModule ON (gibbonAction.gibbonModuleID=gibbonModule.gibbonModuleID) WHERE gibbonModule.name='Transcripts' AND gibbonAction.name='Course Details'));end
 ";
+
+//v1.0.12
+++$count;
+$sql[$count][0] = '1.0.12';
+$sql[$count][1] = "
+UPDATE gibbonAction SET name='Program Management' WHERE name='Program Dates Management' AND gibbonModuleID=(SELECT gibbonModuleID FROM gibbonModule WHERE name='Transcripts');end
+";
